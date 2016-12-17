@@ -10,39 +10,38 @@
 #include "sl_memory.h"
 #include "sl_uart.h"
 #include "sl_tcpip.h"
-#include "sl_audio.h"
 #include "sl_gpio.h"
-#include "sl_lowpower.h"
-#include "sl_filesystem.h"
-#include "sl_assistgps.h"
-#include "sl_app_sms.h"
-#include "sl_app_call.h"
 #include "sl_app_event.h"
-#include "sl_app_tcpip.h"
-#include "sl_app_audio.h"
-#include "sl_app_agps.h"
-#include "sl_app_audiorec.h"
-#include "sl_app_dtmf.h"
-#include "sl_app_tts.h"
-#include "sl_app_filesystem.h"
-#include "sl_app_pbk.h"
-#include "sl_app_sim.h"
-#include "sl_app_ftp.h"
-#include "sl_app_bt.h"
-#include "sl_app_wifi.h"
 
-#define BUZZER_TIME_ID 200
-#define APP_TASK1_STACK_SIZE    (2 * 2048)
-#define APP_TASK1_PRIORITY      (SL_APP_TASK_PRIORITY_BEGIN + 1)
+#define APP_TASK_DEVICE_STACK_SIZE    (2 * 2048)
+#define APP_TASK_DEVICE_PRIORITY      (SL_APP_TASK_PRIORITY_BEGIN + 1)
+#define APP_TASK_YUNBA_STACK_SIZE     (2 * 2048)
+#define APP_TASK_YUNBA_PRIORITY       (SL_APP_TASK_PRIORITY_BEGIN + 2)
 
-/* variable */ 
-HANDLE g_SLApp1 = HNULL;
+#define GPIO_SWITCH_1   SL_GPIO_1
+#define GPIO_SWITCH_2   SL_GPIO_2
+#define GPIO_BUZZER     SL_GPIO_5
+#define GPIO_MOTOR      SL_GPIO_6
+
+#define TEST_TIME_ID 200
+#define CHECK_SWITCH_1_TIME_ID 201
+#define CHECK_SWITCH_2_TIME_ID 202
+
+typedef enum {
+    LOCK_UNLOCKED,
+    LOCK_LOCKED,
+    LOCK_UNLOCKING,
+    LOCK_LOCKING
+} LOCK_STATUS;
+
+/* variable */
+HANDLE g_SLAppDevice = HNULL;
+HANDLE g_SLAppYunba = HNULL;
 
 static U8 gucUartRecvBuff[100] = {0};
 static U8 gucUartRecvBuffCurPosi = 0;
 
-void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam)
-{
+void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam) {
     SL_EVENT stEvnet;
     SL_TASK hTask;
 
@@ -53,58 +52,99 @@ void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam)
     SL_SendEvents(hTask, &stEvnet);
 }
 
-
-void SL_AppTask1(void *pData)
-{
+void SL_AppTaskDevice(void *pData) {
     SL_EVENT ev = {0};
     SL_TASK stSltask;
-    
-    SL_ApiPrint("******* SL_AppTask1 *********\n");
+    U32 lockState = LOCK_UNLOCKED;
+    U32 lockUnlockStep = 0;
+    SL_GPIO_PIN_STATUS pinStatus;
+
+    SL_ApiPrint("******* SL_AppTaskDevice *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
-    stSltask.element[0] = g_SLApp1;
-    
-    while(1)
-    {
-        SL_FreeMemory((VOID*)ev.nParam1);
+    stSltask.element[0] = g_SLAppDevice;
+
+    SL_GpioSetDir(GPIO_SWITCH_1, SL_GPIO_IN);
+    SL_GpioSetDir(GPIO_SWITCH_2, SL_GPIO_IN);
+//    SL_GpioSetDir(GPIO_BUZZER, SL_GPIO_OUT);
+    SL_GpioSetDir(GPIO_MOTOR, SL_GPIO_OUT);
+    SL_GpioWrite(GPIO_MOTOR, SL_PIN_LOW);
+
+    if (SL_GpioRead(GPIO_SWITCH_1) == SL_PIN_HIGH) {
+        lockState = LOCK_UNLOCKED;
+        SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(1));
+    } else {
+        lockState = LOCK_LOCKED;
+    }
+
+    while (1) {
+        SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
 
-        SL_ApiPrint("SLAPP: SL_AppTask1 get event[%d]\n", ev.nEventId);
-        switch (ev.nEventId)
-        {
-            case EVT_APP_GPRS_STARTRECV:
-            {
-                
-            }
-            break;
-            case EVT_APP_TCP_CLOSE:
-            {
-                SL_ApiPrint("SLAPP: resv EVT_APP_TCP_CLOSE socket[%d]", ev.nParam1);
-                SL_TcpipSocketClose(ev.nParam1);
-            }
-            break;
+//        SL_ApiPrint("SLAPP: SL_AppTaskDevice get event[%d]\n", ev.nEventId);
+        switch (ev.nEventId) {
+            case EVT_APP_UNLOCK:
+                SL_ApiPrint("get unlock request");
+                if (lockState != LOCK_LOCKED) {
+                    SL_ApiPrint("lock state: %d", lockState);
+                    break;
+                }
+                lockState = LOCK_UNLOCKING;
+                lockUnlockStep = 0;
+                SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_MilliSecondToTicks(100));
+                /* start motor */
+                SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
+                break;
             case SL_EV_TIMER:
-            {
-                SL_ApiPrint("SLAPP: recv timer[%d]", ev.nParam1);
-                // if(ev.nParam1 == APP_TIMER_AUDIO_REC)
-                // {
-                //     SL_AppAudioRecStop();
-                // }
-            }
-            break;
+                if (ev.nParam1 == CHECK_SWITCH_2_TIME_ID) {
+                    SL_ApiPrint("CHECK_SWITCH_2_TIME_ID");
+                    pinStatus = SL_GpioRead(GPIO_SWITCH_2);
+                    if (pinStatus == SL_PIN_LOW) {
+                        if (lockUnlockStep == 0) {
+                            lockUnlockStep = 1;
+                        } else if (lockUnlockStep == 2) {
+                            /* stop motor */
+                            SL_GpioWrite(GPIO_MOTOR, SL_PIN_LOW);
+                            SL_StopTimer(stSltask, CHECK_SWITCH_2_TIME_ID);
+                            if (lockState == LOCK_LOCKING) {
+                                lockState = LOCK_LOCKED;
+                                SL_ApiPrint("lock finished");
+                            } else {
+                                lockState = LOCK_UNLOCKED;
+                                SL_ApiPrint("unlock finished");
+                                SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(1));
+                            }
+                        }
+                    } else {
+                        if (lockUnlockStep == 1) {
+                            lockUnlockStep = 2;
+                        }
+                    }
+                } else if (ev.nParam1 == CHECK_SWITCH_1_TIME_ID) {
+                    SL_ApiPrint("CHECK_SWITCH_1_TIME_ID");
+                    pinStatus = SL_GpioRead(GPIO_SWITCH_1);
+                    if (pinStatus == SL_PIN_LOW) {
+                        SL_StopTimer(stSltask, CHECK_SWITCH_1_TIME_ID);
+                        lockState = LOCK_LOCKING;
+                        lockUnlockStep = 0;
+                        SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_MilliSecondToTicks(20));
+                        /* start motor */
+                        SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
+                    }
+                }
+                break;
             default:
-            break;
+                break;
         }
     }
 }
 
-void SL_AppCreateTask()
-{
-   g_SLApp1 = SL_CreateTask(SL_AppTask1, APP_TASK1_STACK_SIZE, APP_TASK1_PRIORITY, "SL_AppTask1");
-   SL_ApiPrint("g_SLApp1=%u", g_SLApp1);
+void SL_AppCreateTask() {
+    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
+                                  "SL_AppTaskDevice");
+    SL_ApiPrint("g_SLAppDevice=%u", g_SLAppDevice);
 }
 
-void APP_ENTRY_START SL_Entry(void)
-{
+void APP_ENTRY_START SL_Entry(void) {
     SL_EVENT ev = {0};
     SL_TASK stSltask;
     PSL_UART_DATA pUartData;
@@ -116,35 +156,29 @@ void APP_ENTRY_START SL_Entry(void)
     stSltask.element[0] = SL_GetAppTaskHandle();
     SL_AppSendMsg(stSltask.element[0], EVT_APP_READY, 0);
 
-
-    SL_GpioSetDir(SL_GPIO_5, SL_GPIO_OUT);
-    SL_StartTimer(stSltask, BUZZER_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(10));
-
-    while(1)
-    {
-        SL_FreeMemory((VOID*)ev.nParam1);
+    while (1) {
+        SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
         SL_ApiPrint("SLAPP: SL_Entry get event[%d]\n", ev.nEventId);
-        switch (ev.nEventId)
-        {
-            case EVT_APP_READY:
-            {
+        switch (ev.nEventId) {
+            case EVT_APP_READY: {
                 // SL_AppInitTcpip();
 
-                while(SL_GetNwStatus() != SL_RET_OK)
-                {
-                    SL_ApiPrint("SLAPP: net register");
-                    SL_Sleep(1000);
-                }
-                //#endif
-                
+                // while(SL_GetNwStatus() != SL_RET_OK)
+                // {
+                //     SL_ApiPrint("SLAPP: net register");
+                //     SL_Sleep(1000);
+                // }
+
                 SL_ApiPrint("SLAPP: net register ok");
-                SL_Sleep(3000);
+                SL_Sleep(20000);
+                SL_ApiPrint("SLAPP: test unlock");
+                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
                 //SL_ApiPrint("SLAPP: open uart2");
                 //SL_UartOpen(SL_UART_2);
                 //SL_UartSetBaudRate(SL_UART_2, SL_UART_BAUD_RATE_115200);
                 //SL_ApiPrint("SLAPP: open uart2 ok");
-                
+
                 //SL_UartOpen(SL_UART_1);
                 //SL_UartSetBaudRate(SL_UART_1, SL_UART_BAUD_RATE_115200);
                 //SL_UartSendData(SL_UART_1, "01234567890123456789012345678901234567890123456789", 50);
@@ -155,64 +189,52 @@ void APP_ENTRY_START SL_Entry(void)
 
                 // wifi_init();
                 // wifi_power_on();
-                
+
                 //SL_LpwrEnterDSleep(SL_UART_1);
                 //SL_UartClose(SL_UART_1);
                 //SL_UartClose(SL_UART_2);
                 //SL_AppStartTcpip();
             }
-            break;
-            case EVT_APP_GPRS_READY:
-            {
-                SL_AppStartTcpip();
-            }
-            break;
-            case EVT_APP_TCP_CLOSE:
-            {
-                SL_ApiPrint("SLAPP: resv EVT_APP_TCP_CLOSE socket[%d]", ev.nParam1);
-                SL_TcpipSocketClose(ev.nParam1);
-            }
-            break;            
-            case SL_EV_UART_RECEIVE_DATA_IND:
-            {   
-                pUartData = (PSL_UART_DATA)ev.nParam1;
+                break;
+//            case EVT_APP_GPRS_READY: {
+//                SL_AppStartTcpip();
+//            }
+//                break;
+//            case EVT_APP_TCP_CLOSE: {
+//                SL_ApiPrint("SLAPP: resv EVT_APP_TCP_CLOSE socket[%d]", ev.nParam1);
+//                SL_TcpipSocketClose(ev.nParam1);
+//            }
+//                break;
+            case SL_EV_UART_RECEIVE_DATA_IND: {
+                pUartData = (PSL_UART_DATA) ev.nParam1;
                 ulUartId = ev.nParam2;
 
                 //gucTaskId = SL_TakeMutex(gucMutex);
                 //SL_Memset(gucUartRecvBuff, 0, sizeof(gucUartRecvBuff));
-                if(gucUartRecvBuffCurPosi + pUartData->ulDataLen > sizeof(gucUartRecvBuff))
-                {
+                if (gucUartRecvBuffCurPosi + pUartData->ulDataLen > sizeof(gucUartRecvBuff)) {
                     SL_Memset(gucUartRecvBuff, 0, sizeof(gucUartRecvBuff));
                     gucUartRecvBuffCurPosi = 0;
                 }
-                
+
                 SL_Memcpy(gucUartRecvBuff + gucUartRecvBuffCurPosi, pUartData->aucDataBuf, pUartData->ulDataLen);
                 SL_ApiPrint("SLAPP: uart[%d] read uart lenth[%d]", ulUartId, pUartData->ulDataLen);
                 gucUartRecvBuffCurPosi += pUartData->ulDataLen;
-                
+
                 //SL_GiveMutex(gucMutex, gucTaskId);
             }
-            break;
-            case SL_EV_TIMER:
-            {
-                if(ev.nParam1 == BUZZER_TIME_ID)
-                {
-                    SL_GpioWrite(SL_GPIO_5, SL_PIN_LOW);
-                    SL_Sleep(1000);
-                    SL_GpioWrite(SL_GPIO_5, SL_PIN_HIGH);
-                }     
+                break;
+            case SL_EV_TIMER: {
             }
-            break;
-            case SL_EV_UART1_WKUP_IRQ_IND:
-            {
+                break;
+            case SL_EV_UART1_WKUP_IRQ_IND: {
                 SL_Print("****** SL_EV_UART1_WKUP_IRQ_IND ******\n");
                 SL_LpwrEnterWakeup();
                 SL_UartOpen(SL_UART_1);
-            }                
-            break;
-            
+            }
+                break;
+
             default:
-            break;
+                break;
         }
     }
 }

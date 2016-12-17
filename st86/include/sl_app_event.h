@@ -19,4 +19,7 @@
 #define SL_APP_FTPOP_REQ                (EVT_APP_PLAY_TTS + 1)
 #define SL_APP_UPDATE_REQ               (SL_APP_FTPOP_REQ + 1)
 
+#define EVT_APP_UNLOCK					(SL_APP_UPDATE_REQ + 1)
+#define EVT_APP_LOCK					(EVT_APP_UNLOCK + 1)
+
 #endif
