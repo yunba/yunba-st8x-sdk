@@ -18,9 +18,9 @@
 #define __MQTT_CLIENT_C_
 
 #include "MQTTPacket.h"
-#include "stdio.h"
+#include "sl_stdlib.h"
 #include "cJSON.h"
-#include "" //Platform specific implementation header file
+#include "MQTTPlatform.h" //Platform specific implementation header file
 
 #define MAX_PACKET_ID 65535
 #define MAX_MESSAGE_HANDLERS 5
@@ -42,7 +42,7 @@ struct MQTTMessage
     enum QoS qos;
     char retained;
     char dup;
-    uint64_t id;
+    U64 id;
     void *payload;
     size_t payloadlen;
 };
@@ -111,7 +111,7 @@ void setDefaultMessageHandler(Client*, messageHandler);
 void MQTTClient(Client*, Network*, unsigned int, unsigned char*, size_t, unsigned char*, size_t);
 
 struct Client {
-    uint64_t next_packetid;
+    U64 next_packetid;
     unsigned int command_timeout_ms;
     size_t buf_size, readbuf_size;
     unsigned char *buf;  

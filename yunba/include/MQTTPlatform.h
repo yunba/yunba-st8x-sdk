@@ -24,7 +24,7 @@
 typedef struct Timer Timer;
 
 struct Timer {
-	struct timeval end_time;
+	SL_SYSTEMTIME end_time;
 };
 
 typedef struct Network Network;

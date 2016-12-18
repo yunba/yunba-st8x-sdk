@@ -23,12 +23,17 @@
 #ifndef cJSON__h
 #define cJSON__h
 
-#include "stdio.h"
+#include "sl_stdlib.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+#define INT_MAX (2147483647)
+#define INT_MIN (2147483648)
+#define FLT_EPSILON (1.192092896e-07F)
+#define DBL_EPSILON (2.2204460492503131e-016)
 
 /* cJSON Types: */
 #define cJSON_False 0

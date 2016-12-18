@@ -26,7 +26,7 @@ void NewMessageData(MessageData* md, MQTTString* aTopicName, MQTTMessage* aMessg
 }
 
 
-uint64_t getNextPacketId(Client *c) {
+U64 getNextPacketId(Client *c) {
 	c->next_packetid = generate_uuid();
     return c->next_packetid;
 }
@@ -268,7 +268,7 @@ int cycle(Client* c, Timer* timer)
             MQTTMessage msg;
             EXTED_CMD cmd;
             int status;
-            if (MQTTDeserialize_extendedcmd((unsigned char*)&msg.dup, (int*)&msg.qos, (unsigned char*)&msg.retained, (uint64_t*)&msg.id, &cmd,
+            if (MQTTDeserialize_extendedcmd((unsigned char*)&msg.dup, (int*)&msg.qos, (unsigned char*)&msg.retained, (U64*)&msg.id, &cmd,
                &status, (unsigned char**)&msg.payload, (int*)&msg.payloadlen, c->readbuf, c->readbuf_size) != 1)
                 goto exit;
             deliverextMessage(c, cmd, status, msg.payloadlen, msg.payload);
@@ -279,7 +279,7 @@ int cycle(Client* c, Timer* timer)
         {
             MQTTString topicName;
             MQTTMessage msg;
-            if (MQTTDeserialize_publish((unsigned char*)&msg.dup, (int*)&msg.qos, (unsigned char*)&msg.retained, (uint64_t*)&msg.id, &topicName,
+            if (MQTTDeserialize_publish((unsigned char*)&msg.dup, (int*)&msg.qos, (unsigned char*)&msg.retained, (U64*)&msg.id, &topicName,
                (unsigned char**)&msg.payload, (int*)&msg.payloadlen, c->readbuf, c->readbuf_size) != 1)
                 goto exit;
             deliverMessage(c, &topicName, &msg);
@@ -300,7 +300,7 @@ int cycle(Client* c, Timer* timer)
         }
         case PUBREC:
         {
-            uint64_t mypacketid;
+            U64 mypacketid;
             unsigned char dup, type;
             if (MQTTDeserialize_ack(&type, &dup, &mypacketid, c->readbuf, c->readbuf_size) != 1)
                 rc = FAILURE;
@@ -318,7 +318,7 @@ int cycle(Client* c, Timer* timer)
 
         case PUBREL:
         {
-            uint64_t mypacketid;
+            U64 mypacketid;
             unsigned char dup, type;
              if (MQTTDeserialize_ack(&type, &dup, &mypacketid, c->readbuf, c->readbuf_size) != 1)
                  rc = FAILURE;
@@ -445,7 +445,7 @@ int MQTTSubscribe(Client* c, const char* topicFilter, enum QoS qos)
     if (waitfor(c, SUBACK, &timer) == SUBACK)      // wait for suback 
     {
         int count = 0, grantedQoS = -1;
-        uint64_t mypacketid;
+        U64 mypacketid;
         if (MQTTDeserialize_suback(&mypacketid, 1, &count, &grantedQoS, c->readbuf, c->readbuf_size) == 1)
             rc = grantedQoS; // 0, 1, 2 or 0x80 
     }
@@ -479,7 +479,7 @@ int MQTTUnsubscribe(Client* c, const char* topicFilter)
     
     if (waitfor(c, UNSUBACK, &timer) == UNSUBACK)
     {
-        uint64_t mypacketid;  // should be the same as the packetid above
+        U64 mypacketid;  // should be the same as the packetid above
         if (MQTTDeserialize_unsuback(&mypacketid, c->readbuf, c->readbuf_size) == 1)
             rc = 0; 
     }
@@ -519,7 +519,7 @@ int MQTTPublish(Client* c, const char* topicName, MQTTMessage* message)
     {
         if (waitfor(c, PUBACK, &timer) == PUBACK)
         {
-            uint64_t mypacketid;
+            U64 mypacketid;
             unsigned char dup, type;
             if (MQTTDeserialize_ack(&type, &dup, &mypacketid, c->readbuf, c->readbuf_size) != 1)
                 rc = FAILURE;
@@ -531,7 +531,7 @@ int MQTTPublish(Client* c, const char* topicName, MQTTMessage* message)
     {
         if (waitfor(c, PUBCOMP, &timer) == PUBCOMP)
         {
-        	uint64_t mypacketid;
+        	U64 mypacketid;
             unsigned char dup, type;
             if (MQTTDeserialize_ack(&type, &dup, &mypacketid, c->readbuf, c->readbuf_size) != 1)
                 rc = FAILURE;
@@ -617,7 +617,7 @@ int MQTTExtendedCmd(Client* c, EXTED_CMD cmd, void *payload, int payload_len, in
     int rc = FAILURE;
     Timer timer;
     int len = 0;
-    uint64_t id = 0;
+    U64 id = 0;
 
     InitTimer(&timer);
     countdown_ms(&timer, c->command_timeout_ms);
@@ -704,31 +704,31 @@ int MQTTPublish2(Client* c,
 {
 	const char *key[PUBLISH2_TLV_MAX_NUM] =
 	{"topic", "payload", "platform", "time_to_live", "time_delay", "location", "qos", "apn_json"};
-	uint8_t *p;
-	uint8_t pub_buf[1024];
-	uint16_t len, i = 0;
+	U8 *p;
+	U8 pub_buf[1024];
+	U16 len, i = 0;
 
 	p = pub_buf;
 
-	*p++ = (uint8_t)PUBLISH2_TLV_PAYLOAD;
-	*p++ = (uint8_t)((payloadlen >> 8) & 0xff);
-	*p++ = (uint8_t)(payloadlen & 0xff);
+	*p++ = (U8)PUBLISH2_TLV_PAYLOAD;
+	*p++ = (U8)((payloadlen >> 8) & 0xff);
+	*p++ = (U8)(payloadlen & 0xff);
 	memcpy(p, payload, payloadlen);
 	p += payloadlen;
 
 	len = strlen(topicName);
-	*p++ = (uint8_t)PUBLISH2_TLV_TOPIC;
-	*p++ = (uint8_t)((len >> 8) & 0xff);
-	*p++ = (uint8_t)(len & 0xff);
+	*p++ = (U8)PUBLISH2_TLV_TOPIC;
+	*p++ = (U8)((len >> 8) & 0xff);
+	*p++ = (U8)(len & 0xff);
 	memcpy(p, topicName, len);
 	p += len;
 
 	if (opt) {
-		uint8_t j = 0;
+		U8 j = 0;
 		int size = cJSON_GetArraySize(opt);
 		for (j = 0; j < size; j++) {
 			cJSON * test = cJSON_GetArrayItem(opt, j);
-			uint8_t i = 0;
+			U8 i = 0;
 			for (i = 0; i < PUBLISH2_TLV_MAX_NUM; i++) {
 				if (strcmp(test->string, key[i]) == 0) {
 					switch (i) {
@@ -738,9 +738,9 @@ int MQTTPublish2(Client* c,
 					case PUBLISH2_TLV_APN_JSON:
 					{
 						len = strlen(test->valuestring);
-						*p++ = (uint8_t)i;
-						*p++ = (uint8_t)((len >> 8) & 0xff);
-						*p++ = (uint8_t)(len & 0xff);
+						*p++ = (U8)i;
+						*p++ = (U8)((len >> 8) & 0xff);
+						*p++ = (U8)(len & 0xff);
 						memcpy(p, test->valuestring, len);
 						p += len;
 						break;
@@ -817,16 +817,16 @@ int MQTTClient_get_host_v2(char *appkey, char* url)
 	char json_data[512];
 	Network n;
 	int ret;
-	uint16_t json_len;
-	uint16_t len;
+	U16 json_len;
+	U16 len;
 
 	sprintf(json_data, "{\"a\":\"%s\",\"n\":\"%s\",\"v\":\"%s\",\"o\":\"%s\"}",
 					appkey, /*${networktype}*/"1", "v1.0.0", /*${NetworkOperator}*/"1");
 
 	json_len = strlen(json_data);
 	buf[0] = 1; //version
-	buf[1] = (uint8_t)((json_len >> 8) & 0xff);
-	buf[2] = (uint8_t)(json_len & 0xff);
+	buf[1] = (U8)((json_len >> 8) & 0xff);
+	buf[2] = (U8)(json_len & 0xff);
 	len = json_len + 3;
 	memcpy(buf + 3, json_data, json_len);
 
@@ -839,7 +839,7 @@ int MQTTClient_get_host_v2(char *appkey, char* url)
 		ret = n.mqttread(&n, buf, sizeof(buf), 3000);
 		// packet: version number(1 byte) + json length(2 byte) + json
 		//FIXME: condition: ret > 3
-		len = (uint16_t)(((uint8_t)buf[1] << 8) | (uint8_t)buf[2]);
+		len = (U16)(((U8)buf[1] << 8) | (U8)buf[2]);
 		if (len == strlen(buf + 3)) {
 			cJSON *root = cJSON_Parse(buf + 3);
 			if (root) {
@@ -938,8 +938,8 @@ int MQTTClient_setup_with_appkey_v2(char* appkey, REG_info *info)
 	char json_data[512];
 	int ret;
 	Network n;
-	uint16_t json_len;
-	uint16_t len;
+	U16 json_len;
+	U16 len;
 
 	if (appkey == NULL)
 		goto exit;
@@ -948,8 +948,8 @@ int MQTTClient_setup_with_appkey_v2(char* appkey, REG_info *info)
 
 	json_len = strlen(json_data);
 	buf[0] = 1; //version
-	buf[1] = (uint8_t)((json_len >> 8) & 0xff);
-	buf[2] = (uint8_t)(json_len & 0xff);
+	buf[1] = (U8)((json_len >> 8) & 0xff);
+	buf[2] = (U8)(json_len & 0xff);
 	len = json_len + 3;
 	memcpy(buf + 3, json_data, json_len);
 
@@ -961,7 +961,7 @@ int MQTTClient_setup_with_appkey_v2(char* appkey, REG_info *info)
 		memset(buf, 0, sizeof(buf));
 		ret = n.mqttread(&n, buf, sizeof(buf), 3000);
 		//FIXME: condition: ret > 3
-		len = (uint16_t)(((uint8_t)buf[1] << 8) | (uint8_t)buf[2]);
+		len = (U16)(((U8)buf[1] << 8) | (U8)buf[2]);
 		if (len == strlen(buf + 3)) {
 			cJSON *root = cJSON_Parse(buf + 3);
 			if (root) {
@@ -1030,8 +1030,8 @@ int MQTTClient_setup_with_appkey_and_deviceid_v2(char* appkey, char *deviceid, R
 	char json_data[512];
 	int ret;
 	Network n;
-	uint16_t json_len;
-	uint16_t len;
+	U16 json_len;
+	U16 len;
 
 	if (appkey == NULL)
 		goto exit;
@@ -1043,8 +1043,8 @@ int MQTTClient_setup_with_appkey_and_deviceid_v2(char* appkey, char *deviceid, R
 
 	json_len = strlen(json_data);
 	buf[0] = 1; //version
-	buf[1] = (uint8_t)((json_len >> 8) & 0xff);
-	buf[2] = (uint8_t)(json_len & 0xff);
+	buf[1] = (U8)((json_len >> 8) & 0xff);
+	buf[2] = (U8)(json_len & 0xff);
 	len = json_len + 3;
 	memcpy(buf + 3, json_data, json_len);
 
@@ -1056,7 +1056,7 @@ int MQTTClient_setup_with_appkey_and_deviceid_v2(char* appkey, char *deviceid, R
 		memset(buf, 0, sizeof(buf));
 		ret = n.mqttread(&n, buf, sizeof(buf), 3000);
 		//FIXME: condition: ret > 3
-		len = (uint16_t)(((uint8_t)buf[1] << 8) | (uint8_t)buf[2]);
+		len = (U16)(((U8)buf[1] << 8) | (U8)buf[2]);
 		if (len == strlen(buf + 3)) {
 			cJSON *root = cJSON_Parse(buf + 3);
 			if (root) {
