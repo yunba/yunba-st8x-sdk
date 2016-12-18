@@ -14,7 +14,7 @@
  *    Ian Craggs - initial API and implementation and/or initial documentation
  *******************************************************************************/
 
-#include "StackTrace.h"
+
 #include "MQTTPacket.h"
 #include <sl_stdlib.h>
 
@@ -42,7 +42,7 @@ int MQTTDeserialize_publish(unsigned char* dup, int* qos, unsigned char* retaine
 	int rc = 0;
 	int mylen = 0;
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	if (header.bits.type != PUBLISH)
 		goto exit;
@@ -64,7 +64,7 @@ int MQTTDeserialize_publish(unsigned char* dup, int* qos, unsigned char* retaine
 	*payload = curdata;
 	rc = 1;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -87,7 +87,7 @@ int MQTTDeserialize_ack(unsigned char* packettype, unsigned char* dup, U64* pack
 	int rc = 0;
 	int mylen;
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	*dup = header.bits.dup;
 	*packettype = header.bits.type;
@@ -101,7 +101,7 @@ int MQTTDeserialize_ack(unsigned char* packettype, unsigned char* dup, U64* pack
 
 	rc = 1;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 

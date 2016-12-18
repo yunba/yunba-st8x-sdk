@@ -15,7 +15,7 @@
  *    Sergio R. Caprile - non-blocking packet read functions for stream transport
  *******************************************************************************/
 
-#include "StackTrace.h"
+
 #include "MQTTPacket.h"
 
 #include <sl_stdlib.h>
@@ -30,7 +30,7 @@ int MQTTPacket_encode(unsigned char* buf, int length)
 {
 	int rc = 0;
 
-	FUNC_ENTRY;
+
 	do
 	{
 		char d = length % 128;
@@ -40,7 +40,7 @@ int MQTTPacket_encode(unsigned char* buf, int length)
 			d |= 0x80;
 		buf[rc++] = d;
 	} while (length > 0);
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -58,7 +58,7 @@ int MQTTPacket_decode(int (*getcharfn)(unsigned char*, int), int* value)
 	int len = 0;
 #define MAX_NO_OF_REMAINING_LENGTH_BYTES 4
 
-	FUNC_ENTRY;
+
 	*value = 0;
 	do
 	{
@@ -76,7 +76,7 @@ int MQTTPacket_decode(int (*getcharfn)(unsigned char*, int), int* value)
 		multiplier *= 128;
 	} while ((c & 128) != 0);
 exit:
-	FUNC_EXIT_RC(len);
+
 	return len;
 }
 
@@ -245,7 +245,7 @@ int readMQTTLenString(MQTTString* mqttstring, unsigned char** pptr, unsigned cha
 {
 	int rc = 0;
 
-	FUNC_ENTRY;
+
 	/* the first two bytes are the length of the string */
 	if (enddata - (*pptr) > 1) /* enough length to read the integer? */
 	{
@@ -258,7 +258,7 @@ int readMQTTLenString(MQTTString* mqttstring, unsigned char** pptr, unsigned cha
 		}
 	}
 	mqttstring->cstring = NULL;
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -355,7 +355,7 @@ static int MQTTPacket_decodenb(MQTTTransport *trp)
 	unsigned char c;
 	int rc = MQTTPACKET_READ_ERROR;
 
-	FUNC_ENTRY;
+
 	if(trp->len == 0){		/* initialize on first call */
 		trp->multiplier = 1;
 		trp->rem_len = 0;
@@ -375,7 +375,7 @@ static int MQTTPacket_decodenb(MQTTTransport *trp)
 	} while ((c & 128) != 0);
 	rc = trp->len;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 

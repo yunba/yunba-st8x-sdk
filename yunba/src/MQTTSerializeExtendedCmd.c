@@ -5,7 +5,7 @@
  *      Author: yunba
  */
 #include "MQTTPacket.h"
-#include "StackTrace.h"
+
 
 #include <sl_stdlib.h>
 
@@ -30,7 +30,7 @@ int MQTTSerialize_extendedcmd(unsigned char* buf, int buflen, unsigned char dup,
 	int rem_len = 0;
 	int rc = 0;
 
-	FUNC_ENTRY;
+
 	if (MQTTPacket_len(rem_len = MQTTSerialize_extendedcmdLength(qos, cmd, payload, payloadlen)) > buflen)
 	{
 		rc = MQTTPACKET_BUFFER_TOO_SHORT;
@@ -58,6 +58,6 @@ int MQTTSerialize_extendedcmd(unsigned char* buf, int buflen, unsigned char dup,
 	rc = ptr - buf;
 
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }

@@ -14,7 +14,6 @@
  *    Ian Craggs - initial API and implementation and/or initial documentation
  *******************************************************************************/
 
-#include "StackTrace.h"
 #include "MQTTPacket.h"
 #include <sl_stdlib.h>
 
@@ -59,7 +58,7 @@ int MQTTDeserialize_connect(MQTTPacket_connectData* data, unsigned char* buf, in
 	int version;
 	int mylen = 0;
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	if (header.bits.type != CONNECT)
 		goto exit;
@@ -103,7 +102,7 @@ int MQTTDeserialize_connect(MQTTPacket_connectData* data, unsigned char* buf, in
 		rc = 1;
 	}
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -123,7 +122,7 @@ int MQTTSerialize_connack(unsigned char* buf, int buflen, unsigned char connack_
 	unsigned char *ptr = buf;
 	MQTTConnackFlags flags = {0};
 
-	FUNC_ENTRY;
+
 	if (buflen < 2)
 	{
 		rc = MQTTPACKET_BUFFER_TOO_SHORT;
@@ -142,7 +141,7 @@ int MQTTSerialize_connack(unsigned char* buf, int buflen, unsigned char connack_
 
 	rc = ptr - buf;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 

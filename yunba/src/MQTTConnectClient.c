@@ -15,7 +15,6 @@
  *******************************************************************************/
 
 #include "MQTTPacket.h"
-#include "StackTrace.h"
 
 #include <sl_stdlib.h>
 
@@ -28,7 +27,7 @@ int MQTTSerialize_connectLength(MQTTPacket_connectData* options)
 {
 	int len = 0;
 
-	FUNC_ENTRY;
+
 
 	if (options->MQTTVersion == 3 || options->MQTTVersion == 0x13)
 		len = 12; /* variable depending on MQTT or MQIsdp */
@@ -43,7 +42,7 @@ int MQTTSerialize_connectLength(MQTTPacket_connectData* options)
 	if (options->password.cstring || options->password.lenstring.data)
 		len += MQTTstrlen(options->password)+2;
 
-	FUNC_EXIT_RC(len);
+
 	return len;
 }
 
@@ -63,7 +62,7 @@ int MQTTSerialize_connect(unsigned char* buf, int buflen, MQTTPacket_connectData
 	int len = 0;
 	int rc = -1;
 
-	FUNC_ENTRY;
+
 	if (MQTTPacket_len(len = MQTTSerialize_connectLength(options)) > buflen)
 	{
 		rc = MQTTPACKET_BUFFER_TOO_SHORT;
@@ -120,7 +119,7 @@ int MQTTSerialize_connect(unsigned char* buf, int buflen, MQTTPacket_connectData
 
 	rc = ptr - buf;
 
-	exit: FUNC_EXIT_RC(rc);
+	exit:
 	return rc;
 }
 
@@ -142,7 +141,7 @@ int MQTTDeserialize_connack(unsigned char* sessionPresent, unsigned char* connac
 	int mylen;
 	MQTTConnackFlags flags = {0};
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	if (header.bits.type != CONNACK)
 		goto exit;
@@ -158,7 +157,7 @@ int MQTTDeserialize_connack(unsigned char* sessionPresent, unsigned char* connac
 
 	rc = 1;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -176,7 +175,7 @@ int MQTTSerialize_zero(unsigned char* buf, int buflen, unsigned char packettype)
 	int rc = -1;
 	unsigned char *ptr = buf;
 
-	FUNC_ENTRY;
+
 	if (buflen < 2)
 	{
 		rc = MQTTPACKET_BUFFER_TOO_SHORT;
@@ -189,7 +188,7 @@ int MQTTSerialize_zero(unsigned char* buf, int buflen, unsigned char packettype)
 	ptr += MQTTPacket_encode(ptr, 0); /* write remaining length */
 	rc = ptr - buf;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 

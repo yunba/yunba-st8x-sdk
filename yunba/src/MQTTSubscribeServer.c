@@ -15,7 +15,7 @@
  *******************************************************************************/
 
 #include "MQTTPacket.h"
-#include "StackTrace.h"
+
 
 #include <sl_stdlib.h>
 
@@ -41,7 +41,7 @@ int MQTTDeserialize_subscribe(unsigned char* dup, U64* packetid, int maxcount, i
 	int rc = -1;
 	int mylen = 0;
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	if (header.bits.type != SUBSCRIBE)
 		goto exit;
@@ -65,7 +65,7 @@ int MQTTDeserialize_subscribe(unsigned char* dup, U64* packetid, int maxcount, i
 
 	rc = 1;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 
@@ -86,7 +86,7 @@ int MQTTSerialize_suback(unsigned char* buf, int buflen, U64 packetid, int count
 	unsigned char *ptr = buf;
 	int i;
 
-	FUNC_ENTRY;
+
 	if (buflen < 2 + count)
 	{
 		rc = MQTTPACKET_BUFFER_TOO_SHORT;
@@ -105,7 +105,7 @@ int MQTTSerialize_suback(unsigned char* buf, int buflen, U64 packetid, int count
 
 	rc = ptr - buf;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }
 

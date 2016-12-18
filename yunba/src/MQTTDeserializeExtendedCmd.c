@@ -4,7 +4,7 @@
  *  Created on: May 5, 2015
  *      Author: yunba
  */
-#include "StackTrace.h"
+
 #include "MQTTPacket.h"
 #include <sl_stdlib.h>
 
@@ -18,7 +18,7 @@ int MQTTDeserialize_extendedcmd(unsigned char* dup, int* qos, unsigned char* ret
 	int rc = 0;
 	int mylen = 0;
 
-	FUNC_ENTRY;
+
 	header.byte = readChar(&curdata);
 	if (header.bits.type != EXTCMD)
 		goto exit;
@@ -46,6 +46,6 @@ int MQTTDeserialize_extendedcmd(unsigned char* dup, int* qos, unsigned char* ret
 //	printf("%s, payload: %s\n", __func__, *payload);
 	rc = 1;
 exit:
-	FUNC_EXIT_RC(rc);
+
 	return rc;
 }

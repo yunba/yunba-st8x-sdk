@@ -17,7 +17,6 @@
 #if !defined(MQTTFORMAT_H)
 #define MQTTFORMAT_H
 
-#include "StackTrace.h"
 #include "MQTTPacket.h"
 
 const char* MQTTPacket_getName(U64 packetid);

@@ -7,11 +7,30 @@
 #include "sl_tcpip.h"
 #include "sl_os.h"
 #include "sl_timer.h"
+#include "sl_app_event.h"
+#include "MQTTPacket.h"
 #include "sl_app_mqttclient.h"
 
-static U8 *gServerIp = "182.92.205.77";
-static U16 gServerPort = 9999;
+#define BUF_SIZE 256
+static U8 gSendBuf[BUF_SIZE];
+
+static U8 *gServerIp = "182.92.106.18";
+static U16 gServerPort = 1883;
+//static U8 *gServerIp = "182.92.205.77";
+//static U16 gServerPort = 9999;
 static S32 gSocketId = 0;
+static HANDLE gTask;
+
+static void SendMsg(U32 ulMsgId, U32 ulParam) {
+    SL_EVENT stEvnet;
+    SL_TASK hTask;
+
+    SL_Memset(&stEvnet, 0, sizeof(SL_EVENT));
+    stEvnet.nEventId = ulMsgId;
+    stEvnet.nParam1 = ulParam;
+    hTask.element[0] = gTask;
+    SL_SendEvents(hTask, &stEvnet);
+}
 
 static void MQTTGprsNetActRsp(U8 ucCidIndex, S32 slErrorCode) {
     S32 slRet = 0;
@@ -42,7 +61,11 @@ static void MQTTTcpipConnRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slEr
     SL_ApiPrint("MQTTTcpipConnRsp: %d", slErrorCode);
     if (bResult == FALSE) {
         SL_ApiPrint("MQTTTcpipConnRsp: socket connect fail[%d]", slErrorCode);
+        SendMsg(EVT_APP_MQTT_ERROR, 0);
+        return;
     }
+
+    SendMsg(EVT_APP_MQTT_INIT_OK, 0);
 }
 
 static void MQTTTcpipSendRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slErrorCode) {
@@ -101,10 +124,24 @@ static void MQTTGprsNetDeactRsp(U8 ucCidIndex, S32 slErrorCode) {
     SL_ApiPrint("SLAPP: gprs net deact rsp OK");
 }
 
-void MQTTConnect() {
+static void sendPacket(U8 *data, U32 len) {
+    S32 slRet = 0;
+    while (len > 0) {
+        slRet = SL_TcpipSocketSend(gSocketId, data, len);
+        if (slRet <= 0) {
+            SL_ApiPrint("SLAPP: SL_AppTcpipRsnd socket send fail ret=%d", slRet);
+            SendMsg(EVT_APP_MQTT_ERROR, 0);
+        } else {
+            len -= slRet;
+        }
+    }
+}
+
+void MQTTInit(HANDLE stTask) {
     S32 slRet = 0;
     SL_TCPIP_CALLBACK stSlTcpipCb;
 
+    gTask = stTask;
     SL_Memset(&stSlTcpipCb, 0, sizeof(stSlTcpipCb));
     stSlTcpipCb.pstSlnetAct = MQTTGprsNetActRsp;
     stSlTcpipCb.pstSlnetDea = MQTTGprsNetDeactRsp;
@@ -120,7 +157,31 @@ void MQTTConnect() {
     if (slRet != SL_RET_OK) {
         SL_ApiPrint("SLAPP: gprs net act fail[%d]", slRet);
     }
-    SL_ApiPrint("SLAPP: MQTTConnect OK!");
+    SL_ApiPrint("SLAPP: MQTTInit OK!");
+}
+
+void MQTTUnInit();
+
+void MQTTConnect() {
+    S32 slRet = 0;
+
+    MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+    data.willFlag = 0;
+    data.MQTTVersion = 19;
+    data.clientID.cstring = "0000002823-000000054812";
+    data.username.cstring = "2770382004042745344";
+    data.password.cstring = "eb53f628fcf87";
+
+    data.keepAliveInterval = 200;
+    data.cleansession = 0;
+    slRet = MQTTSerialize_connect(gSendBuf, BUF_SIZE, &data);
+    if (slRet <= 0) {
+        SL_ApiPrint("MQTTSerialize_connect: %d", slRet);
+        SendMsg(EVT_APP_MQTT_ERROR, 0);
+        return;
+    }
+
+    sendPacket(gSendBuf, slRet);
 }
 
 void MQTTDisconnect();
@@ -129,6 +190,6 @@ void MQTTPublish(const char *topic, const U8 *payload);
 
 void MQTTSubscribe(const char *topic);
 
-void MQTTUnsubscribe(const char *topic);
+void MQTTUnSubscribe(const char *topic);
 
 void MQTTSetAlias(const char *alias);

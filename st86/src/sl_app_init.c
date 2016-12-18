@@ -144,6 +144,7 @@ void SL_AppTaskDevice(void *pData) {
 void SL_AppTaskYunba(void *pData) {
     SL_EVENT ev = {0};
     SL_TASK stSltask;
+    U32 mqttOk = 0;
 
     SL_ApiPrint("******* SL_AppTaskYunba *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
@@ -155,15 +156,23 @@ void SL_AppTaskYunba(void *pData) {
         SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
 
-//        SL_ApiPrint("SLAPP: SL_AppTaskYunba get event[%d]\n", ev.nEventId);
+        SL_ApiPrint("SLAPP: SL_AppTaskYunba get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_READY:
-                SL_ApiPrint("======EVT_APP_READY");
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_READY");
                 while (SL_GetNwStatus() != SL_RET_OK) {
                     SL_ApiPrint("SLAPP: network not ok");
                     SL_Sleep(1000);
                 }
                 SL_ApiPrint("SLAPP: network ok");
+                MQTTInit(g_SLAppYunba);
+                break;
+            case EVT_APP_MQTT_ERROR:
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_ERROR");
+//                SL_Reset();
+                break;
+            case EVT_APP_MQTT_INIT_OK:
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_INIT_OK");
                 MQTTConnect();
                 break;
             case SL_EV_TIMER:
@@ -175,12 +184,10 @@ void SL_AppTaskYunba(void *pData) {
 }
 
 void SL_AppCreateTask() {
-//    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
-//                                  "SL_AppTaskDevice");
-//    SL_ApiPrint("g_SLAppDevice=%u", g_SLAppDevice);
+    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
+                                  "SL_AppTaskDevice");
     g_SLAppYunba = SL_CreateTask(SL_AppTaskYunba, APP_TASK_YUNBA_STACK_SIZE, APP_TASK_YUNBA_PRIORITY,
                                  "SL_AppTaskYunba");
-    SL_ApiPrint("g_SLAppYunba=%u", g_SLAppYunba);
 }
 
 void APP_ENTRY_START
