@@ -12,6 +12,7 @@
 #include "sl_tcpip.h"
 #include "sl_gpio.h"
 #include "sl_app_event.h"
+#include "sl_app_mqttclient.h"
 
 #define APP_TASK_DEVICE_STACK_SIZE    (2 * 2048)
 #define APP_TASK_DEVICE_PRIORITY      (SL_APP_TASK_PRIORITY_BEGIN + 1)
@@ -111,7 +112,8 @@ void SL_AppTaskDevice(void *pData) {
                             } else {
                                 lockState = LOCK_UNLOCKED;
                                 SL_ApiPrint("unlock finished");
-                                SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(1));
+                                SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC,
+                                              SL_SecondToTicks(1));
                             }
                         }
                     } else {
@@ -126,7 +128,8 @@ void SL_AppTaskDevice(void *pData) {
                         SL_StopTimer(stSltask, CHECK_SWITCH_1_TIME_ID);
                         lockState = LOCK_LOCKING;
                         lockUnlockStep = 0;
-                        SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_MilliSecondToTicks(20));
+                        SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC,
+                                      SL_MilliSecondToTicks(20));
                         /* start motor */
                         SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
                     }
@@ -138,13 +141,51 @@ void SL_AppTaskDevice(void *pData) {
     }
 }
 
-void SL_AppCreateTask() {
-    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
-                                  "SL_AppTaskDevice");
-    SL_ApiPrint("g_SLAppDevice=%u", g_SLAppDevice);
+void SL_AppTaskYunba(void *pData) {
+    SL_EVENT ev = {0};
+    SL_TASK stSltask;
+
+    SL_ApiPrint("******* SL_AppTaskYunba *********\n");
+    SL_Memset(&ev, 0, sizeof(SL_EVENT));
+    stSltask.element[0] = g_SLAppYunba;
+;
+    SL_AppSendMsg(g_SLAppYunba, EVT_APP_READY, 0);
+
+    while (1) {
+        SL_FreeMemory((VOID *) ev.nParam1);
+        SL_GetEvent(stSltask, &ev);
+
+//        SL_ApiPrint("SLAPP: SL_AppTaskYunba get event[%d]\n", ev.nEventId);
+        switch (ev.nEventId) {
+            case EVT_APP_READY:
+                SL_ApiPrint("======EVT_APP_READY");
+                while (SL_GetNwStatus() != SL_RET_OK) {
+                    SL_ApiPrint("SLAPP: network not ok");
+                    SL_Sleep(1000);
+                }
+                SL_ApiPrint("SLAPP: network ok");
+                MQTTConnect();
+                break;
+            case SL_EV_TIMER:
+                break;
+            default:
+                break;
+        }
+    }
 }
 
-void APP_ENTRY_START SL_Entry(void) {
+void SL_AppCreateTask() {
+//    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
+//                                  "SL_AppTaskDevice");
+//    SL_ApiPrint("g_SLAppDevice=%u", g_SLAppDevice);
+    g_SLAppYunba = SL_CreateTask(SL_AppTaskYunba, APP_TASK_YUNBA_STACK_SIZE, APP_TASK_YUNBA_PRIORITY,
+                                 "SL_AppTaskYunba");
+    SL_ApiPrint("g_SLAppYunba=%u", g_SLAppYunba);
+}
+
+void APP_ENTRY_START
+
+SL_Entry(void) {
     SL_EVENT ev = {0};
     SL_TASK stSltask;
     PSL_UART_DATA pUartData;
@@ -161,19 +202,18 @@ void APP_ENTRY_START SL_Entry(void) {
         SL_GetEvent(stSltask, &ev);
         SL_ApiPrint("SLAPP: SL_Entry get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
-            case EVT_APP_READY: {
+            case EVT_APP_READY:
                 // SL_AppInitTcpip();
 
-                // while(SL_GetNwStatus() != SL_RET_OK)
-                // {
-                //     SL_ApiPrint("SLAPP: net register");
-                //     SL_Sleep(1000);
-                // }
+//                while (SL_GetNwStatus() != SL_RET_OK) {
+//                    SL_ApiPrint("SLAPP: net register");
+//                    SL_Sleep(1000);
+//                }
 
-                SL_ApiPrint("SLAPP: net register ok");
-                SL_Sleep(20000);
-                SL_ApiPrint("SLAPP: test unlock");
-                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
+//                SL_ApiPrint("SLAPP: net register ok");
+//                SL_Sleep(20000);
+//                SL_ApiPrint("SLAPP: test unlock");
+//                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
                 //SL_ApiPrint("SLAPP: open uart2");
                 //SL_UartOpen(SL_UART_2);
                 //SL_UartSetBaudRate(SL_UART_2, SL_UART_BAUD_RATE_115200);
@@ -194,18 +234,15 @@ void APP_ENTRY_START SL_Entry(void) {
                 //SL_UartClose(SL_UART_1);
                 //SL_UartClose(SL_UART_2);
                 //SL_AppStartTcpip();
-            }
                 break;
-//            case EVT_APP_GPRS_READY: {
+//            case EVT_APP_GPRS_READY:
 //                SL_AppStartTcpip();
-//            }
 //                break;
-//            case EVT_APP_TCP_CLOSE: {
+//            case EVT_APP_TCP_CLOSE:
 //                SL_ApiPrint("SLAPP: resv EVT_APP_TCP_CLOSE socket[%d]", ev.nParam1);
 //                SL_TcpipSocketClose(ev.nParam1);
-//            }
 //                break;
-            case SL_EV_UART_RECEIVE_DATA_IND: {
+            case SL_EV_UART_RECEIVE_DATA_IND:
                 pUartData = (PSL_UART_DATA) ev.nParam1;
                 ulUartId = ev.nParam2;
 
@@ -221,16 +258,13 @@ void APP_ENTRY_START SL_Entry(void) {
                 gucUartRecvBuffCurPosi += pUartData->ulDataLen;
 
                 //SL_GiveMutex(gucMutex, gucTaskId);
-            }
                 break;
-            case SL_EV_TIMER: {
-            }
+            case SL_EV_TIMER:
                 break;
-            case SL_EV_UART1_WKUP_IRQ_IND: {
+            case SL_EV_UART1_WKUP_IRQ_IND:
                 SL_Print("****** SL_EV_UART1_WKUP_IRQ_IND ******\n");
                 SL_LpwrEnterWakeup();
                 SL_UartOpen(SL_UART_1);
-            }
                 break;
 
             default:

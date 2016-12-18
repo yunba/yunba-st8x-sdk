@@ -14,66 +14,22 @@
  *    Allan Stockdill-Mander - initial API and implementation and/or initial documentation
  *******************************************************************************/
 
-#include "MQTTLinux.h"
+#include "MQTTPlatform.h"
 
-#include <sys/time.h>
-#include <inttypes.h>
-#include <math.h>
-
-
-char expired(Timer* timer)
-{
-	struct timeval now, res;
-	gettimeofday(&now, NULL);
-	timersub(&timer->end_time, &now, &res);		
-	return res.tv_sec < 0 || (res.tv_sec == 0 && res.tv_usec <= 0);
-}
-
-
-void countdown_ms(Timer* timer, unsigned int timeout)
-{
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	struct timeval interval = {timeout / 1000, (timeout % 1000) * 1000};
-	timeradd(&now, &interval, &timer->end_time);
-}
-
-
-void countdown(Timer* timer, unsigned int timeout)
-{
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	struct timeval interval = {timeout, 0};
-	timeradd(&now, &interval, &timer->end_time);
-}
-
-
-int left_ms(Timer* timer)
-{
-	struct timeval now, res;
-	gettimeofday(&now, NULL);
-	timersub(&timer->end_time, &now, &res);
-	//printf("left %d ms\n", (res.tv_sec < 0) ? 0 : res.tv_sec * 1000 + res.tv_usec / 1000);
-	return (res.tv_sec < 0) ? 0 : res.tv_sec * 1000 + res.tv_usec / 1000;
-}
-
-
-void InitTimer(Timer* timer)
-{
-	timer->end_time = (struct timeval){0, 0};
-}
-
+#include "sl_os.h"
+#include "sl_stdlib.h"
+#include "sl_type.h"
 
 int linux_read(Network* n, unsigned char* buffer, int len, int timeout_ms)
 {
-	struct timeval interval = {timeout_ms / 1000, (timeout_ms % 1000) * 1000};
+	SL_SYSTEMTIME interval = {timeout_ms / 1000, (timeout_ms % 1000) * 1000};
 	if (interval.tv_sec < 0 || (interval.tv_sec == 0 && interval.tv_usec <= 0))
 	{
 		interval.tv_sec = 0;
 		interval.tv_usec = 100;
 	}
 
-	setsockopt(n->my_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&interval, sizeof(struct timeval));
+	setsockopt(n->my_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&interval, sizeof(SL_SYSTEMTIME));
 
 	int bytes = 0;
 	while (bytes < len)
@@ -102,12 +58,12 @@ int linux_read(Network* n, unsigned char* buffer, int len, int timeout_ms)
 
 int linux_write(Network* n, unsigned char* buffer, int len, int timeout_ms)
 {
-	struct timeval tv;
+	SL_SYSTEMTIME tv;
 
 	tv.tv_sec = 0;  /* 30 Secs Timeout */
 	tv.tv_usec = timeout_ms * 1000;  // Not init'ing this can cause strange errors
 
-	setsockopt(n->my_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+	setsockopt(n->my_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(SL_SYSTEMTIME));
 	int	rc = write(n->my_socket, buffer, len);
 	return rc;
 }
@@ -177,20 +133,6 @@ int ConnectNetwork(Network* n, char* addr, int port)
 	return rc;
 }
 
-static unsigned long long int randm(int n) {
-	double x;
-	unsigned long long int y;
-	srand(getpid());
-	x = rand() / (double)RAND_MAX;
-	y = (unsigned long long int) (x * pow(10.0, n*1.0));
-	return y;
-}
-
 U64 generate_uuid() {
-	struct timeval t_start;
-	gettimeofday(&t_start, NULL);
-	U64 ms = ((U64)t_start.tv_sec * 1000) + (U64)t_start.tv_usec/1000;
-	U64 id = ms << (64 - 41);
-	id |= (U64)(randm(16) % (unsigned long long int)(pow(2, (64 - 41))));
-	return id;
+	return SL_TmGetTick();
 }

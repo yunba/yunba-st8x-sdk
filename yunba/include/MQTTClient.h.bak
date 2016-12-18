@@ -20,7 +20,7 @@
 #include "MQTTPacket.h"
 #include "sl_stdlib.h"
 #include "cJSON.h"
-#include "MQTTPlatform.h" //Platform specific implementation header file
+#include "MQTTPlatform.h.bak"
 
 #define MAX_PACKET_ID 65535
 #define MAX_MESSAGE_HANDLERS 5

@@ -31,7 +31,7 @@ LOCAL_MODULE_DEPENDS :=
 ifneq "$(filter test_%, $(strip ${CT_PRODUCT}))" ""
 LOCAL_MODULE_DEPENDS += app/example
 else
-#LOCAL_MODULE_DEPENDS += app/${CT_PRODUCT}
+LOCAL_MODULE_DEPENDS += app/${CT_PRODUCT}
 endif
 
 LOCAL_MODULE_DEPENDS += app/yunba

@@ -26,7 +26,7 @@ LOCAL_NAME := app/${CT_PRODUCT}
 # Space-separated list of modules (libraries) your module depends upon.
 # These should include the toplevel name, e.g. "phy/dishes ciitech/hotwater"
 
-LOCAL_MODULE_DEPENDS := 
+LOCAL_MODULE_DEPENDS := app/yunba
 
 # Add includes from other modules we do not wish to link to
 ifeq "${APART}" "1"
