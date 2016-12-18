@@ -39,6 +39,19 @@ static void SendMsg(U32 ulMsgId, U32 ulParam) {
     SL_SendEvents(hTask, &stEvnet);
 }
 
+static void SendPacket(U8 *data, U32 len) {
+    S32 slRet = 0;
+    while (len > 0) {
+        slRet = SL_TcpipSocketSend(gSocketId, data, len);
+        if (slRet <= 0) {
+            SL_ApiPrint("SLAPP: SL_AppTcpipRsnd socket send fail ret=%d", slRet);
+            SendMsg(EVT_APP_MQTT_ERROR, 0);
+        } else {
+            len -= slRet;
+        }
+    }
+}
+
 static void HandlePacket(U8 *data, S32 len) {
     U8 dup;
     S32 qos;
@@ -48,13 +61,36 @@ static void HandlePacket(U8 *data, S32 len) {
     S32 status;
     U8 *payload;
     S32 payloadLen;
+    MQTTString topicName;
     U8 packetType;
 
     packetType = data[0] >> 4;
     SL_ApiPrint("HandlePacket: type: %d", packetType);
+    /* TODO: finish other types */
     switch (packetType) {
         case CONNACK:
             SendMsg(EVT_APP_MQTT_CONNACK, 0);
+            break;
+        case PUBLISH:
+            if (MQTTDeserialize_publish(&dup, &qos, &retained, &id, &topicName,
+                                        &payload, &payloadLen, data, len) != 1) {
+                SL_ApiPrint("MQTTDeserialize_publish error");
+            } else {
+                payload[payloadLen] = 0;
+                SendMsg(EVT_APP_MQTT_PUBLISH, payload);
+            }
+            if (qos != 0) {
+                if (qos == 1) {
+                    len = MQTTSerialize_ack(gSendBuf, BUF_SIZE, PUBACK, 0, id);
+                } else if (qos == 2) {
+                    len = MQTTSerialize_ack(gSendBuf, BUF_SIZE, PUBREC, 0, id);
+                }
+                if (len <= 0) {
+                    SL_ApiPrint("MQTTSerialize_ack error");
+                } else {
+                    SendPacket(gSendBuf, len);
+                }
+            }
             break;
         case EXTCMD:
             if (MQTTDeserialize_extendedcmd(&dup, &qos, &retained, &id, &cmd, &status, &payload, &payloadLen, data,
@@ -65,8 +101,6 @@ static void HandlePacket(U8 *data, S32 len) {
                 SendMsg(EVT_APP_MQTT_EXTCMD, payload);
             }
             break;
-            /* TODO: finish these types */
-        case PUBLISH:
         case PUBACK:
         case SUBACK:
         case PUBREC:
@@ -206,19 +240,6 @@ static void MQTTGprsNetDeactRsp(U8 ucCidIndex, S32 slErrorCode) {
     SL_ApiPrint("SLAPP: gprs net deact rsp OK");
 }
 
-static void sendPacket(U8 *data, U32 len) {
-    S32 slRet = 0;
-    while (len > 0) {
-        slRet = SL_TcpipSocketSend(gSocketId, data, len);
-        if (slRet <= 0) {
-            SL_ApiPrint("SLAPP: SL_AppTcpipRsnd socket send fail ret=%d", slRet);
-            SendMsg(EVT_APP_MQTT_ERROR, 0);
-        } else {
-            len -= slRet;
-        }
-    }
-}
-
 void MQTTInit(HANDLE stTask) {
     S32 slRet = 0;
     SL_TCPIP_CALLBACK stSlTcpipCb;
@@ -253,9 +274,9 @@ void MQTTConnect() {
     data.clientID.cstring = CLIENT_ID;
     data.username.cstring = USERNAME;;
     data.password.cstring = PASSWORD;
-
     data.keepAliveInterval = 200;
     data.cleansession = 0;
+
     slRet = MQTTSerialize_connect(gSendBuf, BUF_SIZE, &data);
     if (slRet <= 0) {
         SL_ApiPrint("MQTTSerialize_connect: %d", slRet);
@@ -263,15 +284,31 @@ void MQTTConnect() {
         return;
     }
 
-    sendPacket(gSendBuf, slRet);
+    SendPacket(gSendBuf, slRet);
 }
 
 void MQTTDisconnect();
 
-void MQTTPublish(const char *topic, const U8 *payload);
+void MQTTPublish(char *topic, U8 *payload) {
+    S32 slRet = 0;
+    MQTTString strTopic = MQTTString_initializer;
+    strTopic.cstring = (char *) topic;
 
-void MQTTSubscribe(const char *topic);
+    slRet = MQTTSerialize_publish(gSendBuf, BUF_SIZE, 0, 1, 0, SL_TmGetTick(),
+                                  strTopic, payload, strlen(payload));
+    if (slRet <= 0) {
+        SL_ApiPrint("MQTTSerialize_publish: %d", slRet);
+        SendMsg(EVT_APP_MQTT_ERROR, 0);
+        return;
+    }
 
-void MQTTUnSubscribe(const char *topic);
+    SendPacket(gSendBuf, slRet);
+}
 
-void MQTTSetAlias(const char *alias);
+void MQTTSubscribe(char *topic);
+
+void MQTTUnSubscribe(char *topic);
+
+void MQTTSetAlias(char *alias) {
+    MQTTPublish(",yali", alias);
+}

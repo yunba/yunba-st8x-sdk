@@ -9,12 +9,12 @@ void MQTTConnect();
 
 void MQTTDisconnect();
 
-void MQTTPublish(const char *topic, const U8 *payload);
+void MQTTPublish(char *topic, U8 *payload);
 
-void MQTTSubscribe(const char *topic);
+void MQTTSubscribe(char *topic);
 
-void MQTTUnSubscribe(const char *topic);
+void MQTTUnSubscribe(char *topic);
 
-void MQTTSetAlias(const char *alias);
+void MQTTSetAlias(char *alias);
 
 #endif

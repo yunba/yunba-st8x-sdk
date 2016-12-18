@@ -178,6 +178,11 @@ void SL_AppTaskYunba(void *pData) {
             case EVT_APP_MQTT_CONNACK:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
                 mqttOk = 1;
+                MQTTSetAlias("yunba_lock");
+                break;
+            case EVT_APP_MQTT_PUBLISH:
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
+                SL_ApiPrint("payload: %s", ev.nParam1);
                 break;
             case EVT_APP_MQTT_EXTCMD:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_EXCMD");
