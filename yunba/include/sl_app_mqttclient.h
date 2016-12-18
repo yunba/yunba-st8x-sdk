@@ -11,6 +11,8 @@ void MQTTDisconnect();
 
 void MQTTPublish(char *topic, U8 *payload);
 
+void MQTTPingreq();
+
 void MQTTSubscribe(char *topic);
 
 void MQTTUnSubscribe(char *topic);

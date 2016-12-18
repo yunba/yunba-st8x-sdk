@@ -27,6 +27,7 @@
 #define TEST_TIME_ID 200
 #define CHECK_SWITCH_1_TIME_ID 201
 #define CHECK_SWITCH_2_TIME_ID 202
+#define MQTT_KEEPALIVE_TIME_ID 203
 
 typedef enum {
     LOCK_UNLOCKED,
@@ -51,6 +52,10 @@ void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam) {
     stEvnet.nParam1 = ulParam;
     hTask.element[0] = stTask;
     SL_SendEvents(hTask, &stEvnet);
+}
+
+void SL_AppHandleYunbaMsg(U8 *data) {
+
 }
 
 void SL_AppTaskDevice(void *pData) {
@@ -179,16 +184,22 @@ void SL_AppTaskYunba(void *pData) {
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
                 mqttOk = 1;
                 MQTTSetAlias("yunba_lock");
+                SL_StartTimer(stSltask, MQTT_KEEPALIVE_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(60));
                 break;
             case EVT_APP_MQTT_PUBLISH:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
                 SL_ApiPrint("payload: %s", ev.nParam1);
+                SL_AppHandleYunbaMsg(ev.nParam1);
                 break;
             case EVT_APP_MQTT_EXTCMD:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_EXCMD");
                 SL_ApiPrint("payload: %s", ev.nParam1);
                 break;
             case SL_EV_TIMER:
+                if (ev.nParam1 == MQTT_KEEPALIVE_TIME_ID) {
+                    SL_ApiPrint("SL_AppTaskYunba: MQTT_KEEPALIVE_TIME_ID");
+                    MQTTPingreq();
+                }
                 break;
             default:
                 break;

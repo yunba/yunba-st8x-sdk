@@ -305,6 +305,19 @@ void MQTTPublish(char *topic, U8 *payload) {
     SendPacket(gSendBuf, slRet);
 }
 
+void MQTTPingreq() {
+    S32 slRet = 0;
+
+    slRet = MQTTSerialize_pingreq(gSendBuf, BUF_SIZE);
+    if (slRet <= 0) {
+        SL_ApiPrint("MQTTSerialize_pingreq: %d", slRet);
+        SendMsg(EVT_APP_MQTT_ERROR, 0);
+        return;
+    }
+
+    SendPacket(gSendBuf, slRet);
+}
+
 void MQTTSubscribe(char *topic);
 
 void MQTTUnSubscribe(char *topic);
