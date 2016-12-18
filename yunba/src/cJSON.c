@@ -171,7 +171,7 @@ static char *print_number(cJSON *item, printbuffer *p) {
         if (p) str = ensure(p, 64);
         else str = (char *) SL_GetMemory(64);    /* This is a nice tradeoff. */
         if (str) {
-            if (fabs(floor(d) - d) <= DBL_EPSILON && fabs(d) < 1.0e60)sprintf(str, "%.0f", d);
+            if (fabs(((int)d) - d) <= DBL_EPSILON && fabs(d) < 1.0e60)sprintf(str, "%.0f", d);
             else if (fabs(d) < 1.0e-6 || fabs(d) > 1.0e9) sprintf(str, "%e", d);
             else sprintf(str, "%f", d);
         }

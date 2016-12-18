@@ -12,7 +12,11 @@
 #include "sl_tcpip.h"
 #include "sl_gpio.h"
 #include "sl_app_event.h"
+#include "cJSON.h"
 #include "sl_app_mqttclient.h"
+
+#define ALIAS "yunba_lock_test"
+#define REPORT_TOPIC "yunba_lock_report"
 
 #define APP_TASK_DEVICE_STACK_SIZE    (2 * 2048)
 #define APP_TASK_DEVICE_PRIORITY      (SL_APP_TASK_PRIORITY_BEGIN + 1)
@@ -55,7 +59,34 @@ void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam) {
 }
 
 void SL_AppHandleYunbaMsg(U8 *data) {
+//    cJSON *root = cJSON_Parse(data);
+//    if (root) {
+//        int ret_size = cJSON_GetArraySize(root);
+//        if (ret_size >= 4) {
+//            strcpy(info->client_id, cJSON_GetObjectItem(root,"c")->valuestring);
+//            strcpy(info->username, cJSON_GetObjectItem(root,"u")->valuestring);
+//            strcpy(info->password, cJSON_GetObjectItem(root,"p")->valuestring);
+//            strcpy(info->device_id, cJSON_GetObjectItem(root,"d")->valuestring);
+//            rc = SUCCESS;
+//        }
+//        cJSON_Delete(root);
+}
 
+void SL_AppReportStatus(S32 lockState) {
+    cJSON *status;
+    char *json;
+
+    status = cJSON_CreateObject();
+    cJSON_AddStringToObject(status, "alias", ALIAS);
+    cJSON_AddBoolToObject(status, "lock", lockState == LOCK_LOCKED);
+
+    json = cJSON_PrintUnformatted(status);
+    SL_ApiPrint("status: %s", json);
+
+    MQTTPublish(REPORT_TOPIC, json);
+
+    SL_FreeMemory(json);
+    cJSON_Delete(status);
 }
 
 void SL_AppTaskDevice(void *pData) {
@@ -89,7 +120,7 @@ void SL_AppTaskDevice(void *pData) {
 //        SL_ApiPrint("SLAPP: SL_AppTaskDevice get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_UNLOCK:
-                SL_ApiPrint("get unlock request");
+                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_UNLOCK");
                 if (lockState != LOCK_LOCKED) {
                     SL_ApiPrint("lock state: %d", lockState);
                     break;
@@ -99,6 +130,10 @@ void SL_AppTaskDevice(void *pData) {
                 SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_MilliSecondToTicks(100));
                 /* start motor */
                 SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
+                break;
+            case EVT_APP_REPORT_STATUS:
+                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_REPORT_STATUS");
+                SL_AppReportStatus(lockState);
                 break;
             case SL_EV_TIMER:
                 if (ev.nParam1 == CHECK_SWITCH_2_TIME_ID) {
@@ -120,6 +155,7 @@ void SL_AppTaskDevice(void *pData) {
                                 SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC,
                                               SL_SecondToTicks(1));
                             }
+                            SL_AppSendMsg(g_SLAppDevice, EVT_APP_REPORT_STATUS, 0);
                         }
                     } else {
                         if (lockUnlockStep == 1) {
@@ -183,8 +219,9 @@ void SL_AppTaskYunba(void *pData) {
             case EVT_APP_MQTT_CONNACK:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
                 mqttOk = 1;
-                MQTTSetAlias("yunba_lock");
+                MQTTSetAlias(ALIAS);
                 SL_StartTimer(stSltask, MQTT_KEEPALIVE_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(60));
+                SL_AppSendMsg(g_SLAppDevice, EVT_APP_REPORT_STATUS, 0);
                 break;
             case EVT_APP_MQTT_PUBLISH:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
