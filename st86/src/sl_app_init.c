@@ -11,6 +11,7 @@
 #include "sl_uart.h"
 #include "sl_tcpip.h"
 #include "sl_gpio.h"
+#include "sl_app_agps.h"
 #include "sl_app_event.h"
 #include "cJSON.h"
 #include "sl_app_mqttclient.h"
@@ -32,6 +33,7 @@
 #define CHECK_SWITCH_1_TIME_ID 201
 #define CHECK_SWITCH_2_TIME_ID 202
 #define MQTT_KEEPALIVE_TIME_ID 203
+#define GET_AGPS_TIME_ID 204
 
 typedef enum {
     LOCK_UNLOCKED,
@@ -41,8 +43,11 @@ typedef enum {
 } LOCK_STATUS;
 
 /* variable */
-HANDLE g_SLAppDevice = HNULL;
-HANDLE g_SLAppYunba = HNULL;
+static HANDLE gSLAppDevice = HNULL;
+static HANDLE gSLAppYunba = HNULL;
+
+static U32 gLongitude;
+static U32 gLatitude;
 
 static U8 gucUartRecvBuff[100] = {0};
 static U8 gucUartRecvBuffCurPosi = 0;
@@ -64,7 +69,7 @@ void SL_AppHandleYunbaMsg(U8 *data) {
         int ret_size = cJSON_GetArraySize(root);
         if (ret_size >= 1) {
             if (strcmp(cJSON_GetObjectItem(root, "cmd")->valuestring, "unlock") == 0) {
-                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
+                SL_AppSendMsg(gSLAppDevice, EVT_APP_UNLOCK, 0);
             }
         }
         cJSON_Delete(root);
@@ -74,10 +79,15 @@ void SL_AppHandleYunbaMsg(U8 *data) {
 void SL_AppReportStatus(S32 lockState) {
     cJSON *status;
     char *json;
+    char buf[64];
 
     status = cJSON_CreateObject();
     cJSON_AddStringToObject(status, "alias", ALIAS);
     cJSON_AddBoolToObject(status, "lock", lockState == LOCK_LOCKED);
+    snprintf(buf, sizeof(buf), "%d", gLongitude);
+    cJSON_AddStringToObject(status, "longitude", buf);
+    snprintf(buf, sizeof(buf), "%d", gLatitude);
+    cJSON_AddStringToObject(status, "latitude", buf);
 
     json = cJSON_PrintUnformatted(status);
     SL_ApiPrint("status: %s", json);
@@ -86,6 +96,18 @@ void SL_AppReportStatus(S32 lockState) {
 
     SL_FreeMemory(json);
     cJSON_Delete(status);
+}
+
+void SL_AppAssistGpsGetLocCb(S32 slResult, U32 ulLonggitude, U32 ulLatidude) {
+    if ((0 == ulLonggitude) || (0 == ulLatidude)) {
+        SL_Print("AGPS loc fail this time for lat/lon is 0\n");
+        return;
+    }
+    SL_ApiPrint("SLAPP: SL_AppAssistGpsGetLocCb result[%d], longi[%d], lati[%d]",
+                slResult, ulLonggitude, ulLatidude);
+    gLongitude = ulLonggitude;
+    gLatitude = ulLatidude;
+    SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
 }
 
 void SL_AppTaskDevice(void *pData) {
@@ -97,7 +119,7 @@ void SL_AppTaskDevice(void *pData) {
 
     SL_ApiPrint("******* SL_AppTaskDevice *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
-    stSltask.element[0] = g_SLAppDevice;
+    stSltask.element[0] = gSLAppDevice;
 
     SL_GpioSetDir(GPIO_SWITCH_1, SL_GPIO_IN);
     SL_GpioSetDir(GPIO_SWITCH_2, SL_GPIO_IN);
@@ -154,7 +176,7 @@ void SL_AppTaskDevice(void *pData) {
                                 SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC,
                                               SL_SecondToTicks(1));
                             }
-                            SL_AppSendMsg(g_SLAppDevice, EVT_APP_REPORT_STATUS, 0);
+                            SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
                         }
                     } else {
                         if (lockUnlockStep == 1) {
@@ -188,8 +210,8 @@ void SL_AppTaskYunba(void *pData) {
 
     SL_ApiPrint("******* SL_AppTaskYunba *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
-    stSltask.element[0] = g_SLAppYunba;;
-    SL_AppSendMsg(g_SLAppYunba, EVT_APP_READY, 0);
+    stSltask.element[0] = gSLAppYunba;;
+    SL_AppSendMsg(gSLAppYunba, EVT_APP_READY, 0);
 
     while (1) {
         SL_FreeMemory((VOID *) ev.nParam1);
@@ -204,7 +226,9 @@ void SL_AppTaskYunba(void *pData) {
                     SL_Sleep(1000);
                 }
                 SL_ApiPrint("SLAPP: network ok");
-                MQTTInit(g_SLAppYunba);
+//                SL_AppInitAgps();
+                MQTTInit(gSLAppYunba);
+//                SL_StartTimer(stSltask, GET_AGPS_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(20));
                 break;
             case EVT_APP_MQTT_ERROR:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_ERROR");
@@ -220,7 +244,8 @@ void SL_AppTaskYunba(void *pData) {
                 mqttOk = 1;
                 MQTTSetAlias(ALIAS);
                 SL_StartTimer(stSltask, MQTT_KEEPALIVE_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(60));
-                SL_AppSendMsg(g_SLAppDevice, EVT_APP_REPORT_STATUS, 0);
+//                SL_StartTimer(stSltask, GET_AGPS_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(20));
+                SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
                 break;
             case EVT_APP_MQTT_PUBLISH:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
@@ -235,6 +260,9 @@ void SL_AppTaskYunba(void *pData) {
                 if (ev.nParam1 == MQTT_KEEPALIVE_TIME_ID) {
                     SL_ApiPrint("SL_AppTaskYunba: MQTT_KEEPALIVE_TIME_ID");
                     MQTTPingreq();
+                } else if (ev.nParam1 == GET_AGPS_TIME_ID) {
+                    SL_ApiPrint("SL_AppTaskYunba: GET_AGPS_TIME_ID");
+                    SL_AssistGpsGetLoc(SL_AppAssistGpsGetLocCb);
                 }
                 break;
             default:
@@ -244,10 +272,40 @@ void SL_AppTaskYunba(void *pData) {
 }
 
 void SL_AppCreateTask() {
-    g_SLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
-                                  "SL_AppTaskDevice");
-    g_SLAppYunba = SL_CreateTask(SL_AppTaskYunba, APP_TASK_YUNBA_STACK_SIZE, APP_TASK_YUNBA_PRIORITY,
-                                 "SL_AppTaskYunba");
+    gSLAppDevice = SL_CreateTask(SL_AppTaskDevice, APP_TASK_DEVICE_STACK_SIZE, APP_TASK_DEVICE_PRIORITY,
+                                 "SL_AppTaskDevice");
+    gSLAppYunba = SL_CreateTask(SL_AppTaskYunba, APP_TASK_YUNBA_STACK_SIZE, APP_TASK_YUNBA_PRIORITY,
+                                "SL_AppTaskYunba");
+}
+
+void SL_AppInitAgps(void) {
+    S32 slRet = 0;
+    U8 attach_st = 0;
+    U8 active_st = 0;
+
+    slRet = SL_GprsGetAttState(&attach_st);
+    if (slRet != SL_RET_OK) {
+        SL_Print("AGPS get gprs attach stat error, exit!\n");
+        return;
+    }
+
+    if (SL_GPRS_ATTACHED == attach_st) {
+        SL_Print("AGPS get gprs attach state attached, check active gprs state first\n");
+        slRet = SL_GprsGetActState(1, &active_st);
+        if (slRet != SL_RET_OK) {
+            SL_Print("AGPS get gprs active stat error, exit!\n");
+            return;
+        }
+
+        if (SL_GPRS_ACTIVED == active_st) {
+            SL_Print("AGPS gprs already actived, start agps location...\n");
+            slRet = SL_AssistGpsGetLoc(SL_AppAssistGpsGetLocCb);
+            if (slRet != SL_RET_OK) {
+                SL_Print("AGPS get location error for no attached/actived gprs, exit\n");
+                return;
+            }
+        }
+    }
 }
 
 void APP_ENTRY_START
@@ -270,70 +328,14 @@ SL_Entry(void) {
         SL_ApiPrint("SLAPP: SL_Entry get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_READY:
-                // SL_AppInitTcpip();
-
 //                while (SL_GetNwStatus() != SL_RET_OK) {
 //                    SL_ApiPrint("SLAPP: net register");
 //                    SL_Sleep(1000);
 //                }
-
-//                SL_ApiPrint("SLAPP: net register ok");
-//                SL_Sleep(20000);
-//                SL_ApiPrint("SLAPP: test unlock");
-//                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
-                //SL_ApiPrint("SLAPP: open uart2");
-                //SL_UartOpen(SL_UART_2);
-                //SL_UartSetBaudRate(SL_UART_2, SL_UART_BAUD_RATE_115200);
-                //SL_ApiPrint("SLAPP: open uart2 ok");
-
-                //SL_UartOpen(SL_UART_1);
-                //SL_UartSetBaudRate(SL_UART_1, SL_UART_BAUD_RATE_115200);
-                //SL_UartSendData(SL_UART_1, "01234567890123456789012345678901234567890123456789", 50);
-                //SL_UartClose(SL_UART_1);
-
-                //SL_Sleep(30 * 1000);
-                //SL_AppFtpStartTcpip();
-
-                // wifi_init();
-                // wifi_power_on();
-
-                //SL_LpwrEnterDSleep(SL_UART_1);
-                //SL_UartClose(SL_UART_1);
-                //SL_UartClose(SL_UART_2);
-                //SL_AppStartTcpip();
+//
+//                SL_AssistGpsConfig("52.57.19.50", 7275);
+//                SL_AppStartAgps();
                 break;
-//            case EVT_APP_GPRS_READY:
-//                SL_AppStartTcpip();
-//                break;
-//            case EVT_APP_TCP_CLOSE:
-//                SL_ApiPrint("SLAPP: resv EVT_APP_TCP_CLOSE socket[%d]", ev.nParam1);
-//                SL_TcpipSocketClose(ev.nParam1);
-//                break;
-            case SL_EV_UART_RECEIVE_DATA_IND:
-                pUartData = (PSL_UART_DATA) ev.nParam1;
-                ulUartId = ev.nParam2;
-
-                //gucTaskId = SL_TakeMutex(gucMutex);
-                //SL_Memset(gucUartRecvBuff, 0, sizeof(gucUartRecvBuff));
-                if (gucUartRecvBuffCurPosi + pUartData->ulDataLen > sizeof(gucUartRecvBuff)) {
-                    SL_Memset(gucUartRecvBuff, 0, sizeof(gucUartRecvBuff));
-                    gucUartRecvBuffCurPosi = 0;
-                }
-
-                SL_Memcpy(gucUartRecvBuff + gucUartRecvBuffCurPosi, pUartData->aucDataBuf, pUartData->ulDataLen);
-                SL_ApiPrint("SLAPP: uart[%d] read uart lenth[%d]", ulUartId, pUartData->ulDataLen);
-                gucUartRecvBuffCurPosi += pUartData->ulDataLen;
-
-                //SL_GiveMutex(gucMutex, gucTaskId);
-                break;
-            case SL_EV_TIMER:
-                break;
-            case SL_EV_UART1_WKUP_IRQ_IND:
-                SL_Print("****** SL_EV_UART1_WKUP_IRQ_IND ******\n");
-                SL_LpwrEnterWakeup();
-                SL_UartOpen(SL_UART_1);
-                break;
-
             default:
                 break;
         }
