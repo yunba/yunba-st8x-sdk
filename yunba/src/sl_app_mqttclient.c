@@ -11,13 +11,20 @@
 #include "MQTTPacket.h"
 #include "sl_app_mqttclient.h"
 
-#define BUF_SIZE 256
-static U8 gSendBuf[BUF_SIZE];
+#define BUF_SIZE 512
 
-static U8 *gServerIp = "182.92.106.18";
-static U16 gServerPort = 1883;
-//static U8 *gServerIp = "182.92.205.77";
-//static U16 gServerPort = 9999;
+//#define SERVER_IP "182.92.205.77";
+//#define U16 SERVER_PORT 9999;
+#define SERVER_IP "182.92.106.18" /* abj-front-2 */
+#define SERVER_PORT 1883
+
+#define CLIENT_ID "0000002823-000000054812"
+#define USERNAME "2770382004042745344"
+#define PASSWORD "eb53f628fcf87"
+
+static U8 gSendBuf[BUF_SIZE];
+static U8 gRecvBuf[BUF_SIZE];
+
 static S32 gSocketId = 0;
 static HANDLE gTask;
 
@@ -30,6 +37,44 @@ static void SendMsg(U32 ulMsgId, U32 ulParam) {
     stEvnet.nParam1 = ulParam;
     hTask.element[0] = gTask;
     SL_SendEvents(hTask, &stEvnet);
+}
+
+static void HandlePacket(U8 *data, S32 len) {
+    U8 dup;
+    S32 qos;
+    U8 retained;
+    U64 id;
+    EXTED_CMD cmd;
+    S32 status;
+    U8 *payload;
+    S32 payloadLen;
+    U8 packetType;
+
+    packetType = data[0] >> 4;
+    SL_ApiPrint("HandlePacket: type: %d", packetType);
+    switch (packetType) {
+        case CONNACK:
+            SendMsg(EVT_APP_MQTT_CONNACK, 0);
+            break;
+        case EXTCMD:
+            if (MQTTDeserialize_extendedcmd(&dup, &qos, &retained, &id, &cmd, &status, &payload, &payloadLen, data,
+                                            len) != 1) {
+                SL_ApiPrint("MQTTDeserialize_extendedcmd error");
+            } else {
+                payload[payloadLen] = 0;
+                SendMsg(EVT_APP_MQTT_EXTCMD, payload);
+            }
+            break;
+            /* TODO: finish these types */
+        case PUBLISH:
+        case PUBACK:
+        case SUBACK:
+        case PUBREC:
+        case PUBCOMP:
+        case PUBREL:
+        case PINGRESP:
+            break;
+    }
 }
 
 static void MQTTGprsNetActRsp(U8 ucCidIndex, S32 slErrorCode) {
@@ -53,7 +98,7 @@ static void MQTTGprsNetActRsp(U8 ucCidIndex, S32 slErrorCode) {
 
     SL_Sleep(1000);
 
-    slRet = SL_TcpipSocketConnect(gSocketId, gServerIp, gServerPort);
+    slRet = SL_TcpipSocketConnect(gSocketId, SERVER_IP, SERVER_PORT);
     SL_ApiPrint("SLAPP: SL_TcpipSocketConnect ret[%d]", slRet);
 }
 
@@ -78,7 +123,10 @@ static void MQTTTcpipSendRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slEr
 
 static void MQTTTcpipRcvRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slErrorCode) {
     S32 slRet = 0;
-    U8 data[256] = {0};
+    U8 ch;
+    S32 multiplier = 1;
+    S32 remain_len = 0;
+    S32 len = 0;
 
     SL_ApiPrint("MQTTTcpipRcvRsp: %d, %d", slSockId, slErrorCode);
     if (bResult == FALSE) {
@@ -86,13 +134,47 @@ static void MQTTTcpipRcvRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slErr
         return;
     }
 
-    slRet = SL_TcpipSocketRecv(slSockId, data, sizeof(data));
-    if (slRet >= 0) {
-        SL_ApiPrint("SLAPP: socket[%d] receive OK, length[%d], data[%s]", slSockId, slRet, data);
-        SL_MEMBLOCK(data, slRet, 16);
-    } else {
+    /* packet type */
+    slRet = SL_TcpipSocketRecv(slSockId, gRecvBuf + len, 1);
+    if (slRet != 1) {
         SL_ApiPrint("SLAPP: socket receive fail, ret[%d]", slRet);
+        SendMsg(EVT_APP_MQTT_ERROR, 0);
+        return;
     }
+    SL_ApiPrint("MQTTTcpipRcvRsp: packet type:");
+    SL_MEMBLOCK(gRecvBuf, slRet, 16);
+    len += 1;
+
+    /* remaining length */
+    do {
+        slRet = SL_TcpipSocketRecv(slSockId, &ch, 1);
+        if (slRet != 1) {
+            SL_ApiPrint("SLAPP: socket receive fail, ret[%d]", slRet);
+            SendMsg(EVT_APP_MQTT_ERROR, 0);
+            return;
+        }
+        SL_ApiPrint("MQTTTcpipRcvRsp: remaining length:");
+        SL_MEMBLOCK(&ch, slRet, 16);
+        gRecvBuf[len] = ch;
+        len += 1;
+        remain_len += (ch & 127) * multiplier;
+        multiplier *= 128;
+    } while ((ch & 128) != 0);
+
+    /* rest data */
+    if (remain_len > 0) {
+        slRet = SL_TcpipSocketRecv(slSockId, gRecvBuf + len, remain_len);
+        if (slRet != remain_len) {
+            SL_ApiPrint("SLAPP: socket receive fail, ret[%d]", slRet);
+            SendMsg(EVT_APP_MQTT_ERROR, 0);
+            return;
+        }
+        SL_ApiPrint("MQTTTcpipRcvRsp: rest data:");
+        SL_MEMBLOCK(gRecvBuf + len, slRet, 16);
+        len += remain_len;
+    }
+
+    HandlePacket(gRecvBuf, len);
 }
 
 static void MQTTTcpipCloseRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slErrorCode) {
@@ -168,9 +250,9 @@ void MQTTConnect() {
     MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
     data.willFlag = 0;
     data.MQTTVersion = 19;
-    data.clientID.cstring = "0000002823-000000054812";
-    data.username.cstring = "2770382004042745344";
-    data.password.cstring = "eb53f628fcf87";
+    data.clientID.cstring = CLIENT_ID;
+    data.username.cstring = USERNAME;;
+    data.password.cstring = PASSWORD;
 
     data.keepAliveInterval = 200;
     data.cleansession = 0;

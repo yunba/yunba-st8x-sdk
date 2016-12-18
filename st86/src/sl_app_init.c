@@ -148,8 +148,7 @@ void SL_AppTaskYunba(void *pData) {
 
     SL_ApiPrint("******* SL_AppTaskYunba *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
-    stSltask.element[0] = g_SLAppYunba;
-;
+    stSltask.element[0] = g_SLAppYunba;;
     SL_AppSendMsg(g_SLAppYunba, EVT_APP_READY, 0);
 
     while (1) {
@@ -170,10 +169,19 @@ void SL_AppTaskYunba(void *pData) {
             case EVT_APP_MQTT_ERROR:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_ERROR");
 //                SL_Reset();
+                mqttOk = 0;
                 break;
             case EVT_APP_MQTT_INIT_OK:
                 SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_INIT_OK");
                 MQTTConnect();
+                break;
+            case EVT_APP_MQTT_CONNACK:
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
+                mqttOk = 1;
+                break;
+            case EVT_APP_MQTT_EXTCMD:
+                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_EXCMD");
+                SL_ApiPrint("payload: %s", ev.nParam1);
                 break;
             case SL_EV_TIMER:
                 break;

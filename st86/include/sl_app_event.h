@@ -23,5 +23,7 @@
 #define EVT_APP_LOCK					(EVT_APP_UNLOCK + 1)
 #define EVT_APP_MQTT_ERROR              (EVT_APP_LOCK + 1)
 #define EVT_APP_MQTT_INIT_OK            (EVT_APP_MQTT_ERROR + 1)
+#define EVT_APP_MQTT_CONNACK            (EVT_APP_MQTT_INIT_OK + 1)
+#define EVT_APP_MQTT_EXTCMD             (EVT_APP_MQTT_CONNACK + 1)
 
 #endif
