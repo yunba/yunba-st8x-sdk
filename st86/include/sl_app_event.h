@@ -2,7 +2,7 @@
 #define _SL_APP_EVENT_H_
 
 #include "sl_event.h"
-/* events */ 
+/* events */
 #define EVT_APP_READY                   (SL_EV_MMI_EV_BASE + 1)
 #define EVT_APP_GPRS_READY              (EVT_APP_READY + 1)
 #define EVT_APP_GPRS_STARTRECV          (EVT_APP_GPRS_READY + 1)
@@ -22,7 +22,9 @@
 #define EVT_APP_UNLOCK					(SL_APP_UPDATE_REQ + 1)
 #define EVT_APP_LOCK					(EVT_APP_UNLOCK + 1)
 #define EVT_APP_REPORT_STATUS           (EVT_APP_LOCK + 1)
-#define EVT_APP_MQTT_ERROR              (EVT_APP_REPORT_STATUS + 1)
+#define EVT_APP_BUZZER_ON               (EVT_APP_REPORT_STATUS + 1)
+#define EVT_APP_BUZZER_OFF              (EVT_APP_BUZZER_ON + 1)
+#define EVT_APP_MQTT_ERROR              (EVT_APP_BUZZER_OFF + 1)
 #define EVT_APP_MQTT_INIT_OK            (EVT_APP_MQTT_ERROR + 1)
 #define EVT_APP_MQTT_CONNACK            (EVT_APP_MQTT_INIT_OK + 1)
 #define EVT_APP_MQTT_PUBLISH            (EVT_APP_MQTT_CONNACK + 1)

@@ -34,6 +34,7 @@
 #define CHECK_SWITCH_2_TIME_ID 202
 #define MQTT_KEEPALIVE_TIME_ID 203
 #define GET_AGPS_TIME_ID 204
+#define BUZZER_OFF_TIME_ID 205
 
 typedef enum {
     LOCK_UNLOCKED,
@@ -65,11 +66,19 @@ void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam) {
 
 void SL_AppHandleYunbaMsg(U8 *data) {
     cJSON *root = cJSON_Parse(data);
+    char *cmd;
     if (root) {
         int ret_size = cJSON_GetArraySize(root);
         if (ret_size >= 1) {
-            if (strcmp(cJSON_GetObjectItem(root, "cmd")->valuestring, "unlock") == 0) {
+            cmd = cJSON_GetObjectItem(root, "cmd")->valuestring;
+            if (strcmp(cmd, "unlock") == 0) {
                 SL_AppSendMsg(gSLAppDevice, EVT_APP_UNLOCK, 0);
+            } else if (strcmp(cmd, "report") == 0) {
+                SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
+            } else if (strcmp(cmd, "buzzer_on") == 0) {
+                SL_AppSendMsg(gSLAppDevice, EVT_APP_BUZZER_ON, 5);
+            } else if (strcmp(cmd, "buzzer_off") == 0) {
+                SL_AppSendMsg(gSLAppDevice, EVT_APP_BUZZER_OFF, 0);
             }
         }
         cJSON_Delete(root);
@@ -123,7 +132,8 @@ void SL_AppTaskDevice(void *pData) {
 
     SL_GpioSetDir(GPIO_SWITCH_1, SL_GPIO_IN);
     SL_GpioSetDir(GPIO_SWITCH_2, SL_GPIO_IN);
-//    SL_GpioSetDir(GPIO_BUZZER, SL_GPIO_OUT);
+    SL_GpioSetDir(GPIO_BUZZER, SL_GPIO_OUT);
+    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
     SL_GpioSetDir(GPIO_MOTOR, SL_GPIO_OUT);
     SL_GpioWrite(GPIO_MOTOR, SL_PIN_LOW);
 
@@ -155,6 +165,15 @@ void SL_AppTaskDevice(void *pData) {
             case EVT_APP_REPORT_STATUS:
                 SL_ApiPrint("SL_AppTaskDevice: EVT_APP_REPORT_STATUS");
                 SL_AppReportStatus(lockState);
+                break;
+            case EVT_APP_BUZZER_ON:
+                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_ON");
+                SL_GpioWrite(GPIO_BUZZER, SL_PIN_LOW);
+                SL_StartTimer(stSltask, BUZZER_OFF_TIME_ID, SL_TIMER_MODE_SINGLE, SL_SecondToTicks(ev.nParam1));
+                break;
+            case EVT_APP_BUZZER_OFF:
+                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_OFF");
+                SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
                 break;
             case SL_EV_TIMER:
                 if (ev.nParam1 == CHECK_SWITCH_2_TIME_ID) {
@@ -195,6 +214,9 @@ void SL_AppTaskDevice(void *pData) {
                         /* start motor */
                         SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
                     }
+                } else if (ev.nParam1 == BUZZER_OFF_TIME_ID) {
+                    SL_ApiPrint("BUZZER_OFF_TIME_ID");
+                    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
                 }
                 break;
             default:
