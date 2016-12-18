@@ -32,10 +32,12 @@ static const char *ep;
 const char *cJSON_GetErrorPtr(void) { return ep; }
 
 static int cJSON_strcasecmp(const char *s1, const char *s2) {
-    if (!s1) return (s1 == s2) ? 0 : 1;
-    if (!s2) return 1;
-    for (; tolower(*s1) == tolower(*s2); ++s1, ++s2) if (*s1 == 0) return 0;
-    return tolower(*(const unsigned char *) s1) - tolower(*(const unsigned char *) s2);
+    /* FIXME: case sensitive */
+    return strcmp(s1, s2);
+//    if (!s1) return (s1 == s2) ? 0 : 1;
+//    if (!s2) return 1;
+//    for (; tolower(*s1) == tolower(*s2); ++s1, ++s2) if (*s1 == 0) return 0;
+//    return tolower(*(const unsigned char *) s1) - tolower(*(const unsigned char *) s2);
 }
 
 //static void *(*SL_GetMemory)(size_t sz) = malloc;
@@ -84,30 +86,31 @@ void cJSON_Delete(cJSON *c) {
 
 /* Parse the input text to generate a number, and populate the result into item. */
 static const char *parse_number(cJSON *item, const char *num) {
-    double n = 0, sign = 1, scale = 0;
-    int subscale = 0, signsubscale = 1;
-
-    if (*num == '-') sign = -1, num++;    /* Has sign? */
-    if (*num == '0') num++;            /* is zero */
-    if (*num >= '1' && *num <= '9')
-        do n = (n * 10.0) + (*num++ - '0');
-        while (*num >= '0' && *num <= '9');    /* Number? */
-    if (*num == '.' && num[1] >= '0' && num[1] <= '9') {
-        num++;
-        do n = (n * 10.0) + (*num++ - '0'), scale--; while (*num >= '0' && *num <= '9');
-    }    /* Fractional part? */
-    if (*num == 'e' || *num == 'E')        /* Exponent? */
-    {
-        num++;
-        if (*num == '+') num++; else if (*num == '-') signsubscale = -1, num++;        /* With sign? */
-        while (*num >= '0' && *num <= '9') subscale = (subscale * 10) + (*num++ - '0');    /* Number? */
-    }
-
-    n = sign * n * pow(10.0, (scale + subscale * signsubscale));    /* number = +/- number.fraction * 10^+/- exponent */
-
-    item->valuedouble = n;
-    item->valueint = (int) n;
-    item->type = cJSON_Number;
+    /* FIXME: pow */
+//    double n = 0, sign = 1, scale = 0;
+//    int subscale = 0, signsubscale = 1;
+//
+//    if (*num == '-') sign = -1, num++;    /* Has sign? */
+//    if (*num == '0') num++;            /* is zero */
+//    if (*num >= '1' && *num <= '9')
+//        do n = (n * 10.0) + (*num++ - '0');
+//        while (*num >= '0' && *num <= '9');    /* Number? */
+//    if (*num == '.' && num[1] >= '0' && num[1] <= '9') {
+//        num++;
+//        do n = (n * 10.0) + (*num++ - '0'), scale--; while (*num >= '0' && *num <= '9');
+//    }    /* Fractional part? */
+//    if (*num == 'e' || *num == 'E')        /* Exponent? */
+//    {
+//        num++;
+//        if (*num == '+') num++; else if (*num == '-') signsubscale = -1, num++;        /* With sign? */
+//        while (*num >= '0' && *num <= '9') subscale = (subscale * 10) + (*num++ - '0');    /* Number? */
+//    }
+//
+//    n = sign * n * pow(10.0, (scale + subscale * signsubscale));    /* number = +/- number.fraction * 10^+/- exponent */
+//
+//    item->valuedouble = n;
+//    item->valueint = (int) n;
+//    item->type = cJSON_Number;
     return num;
 }
 
@@ -158,24 +161,25 @@ static int update(printbuffer *p) {
 /* Render the number nicely from the given item into a string. */
 static char *print_number(cJSON *item, printbuffer *p) {
     char *str = 0;
-    double d = item->valuedouble;
-    if (d == 0) {
-        if (p) str = ensure(p, 2);
-        else str = (char *) SL_GetMemory(2);    /* special case for 0. */
-        if (str) strcpy(str, "0");
-    } else if (fabs(((double) item->valueint) - d) <= DBL_EPSILON && d <= INT_MAX && d >= INT_MIN) {
-        if (p) str = ensure(p, 21);
-        else str = (char *) SL_GetMemory(21);    /* 2^64+1 can be represented in 21 chars. */
-        if (str) sprintf(str, "%d", item->valueint);
-    } else {
-        if (p) str = ensure(p, 64);
-        else str = (char *) SL_GetMemory(64);    /* This is a nice tradeoff. */
-        if (str) {
-            if (fabs(((int)d) - d) <= DBL_EPSILON && fabs(d) < 1.0e60)sprintf(str, "%.0f", d);
-            else if (fabs(d) < 1.0e-6 || fabs(d) > 1.0e9) sprintf(str, "%e", d);
-            else sprintf(str, "%f", d);
-        }
-    }
+    /* FIXME: floor */
+//    double d = item->valuedouble;
+//    if (d == 0) {
+//        if (p) str = ensure(p, 2);
+//        else str = (char *) SL_GetMemory(2);    /* special case for 0. */
+//        if (str) strcpy(str, "0");
+//    } else if (fabs(((double) item->valueint) - d) <= DBL_EPSILON && d <= INT_MAX && d >= INT_MIN) {
+//        if (p) str = ensure(p, 21);
+//        else str = (char *) SL_GetMemory(21);    /* 2^64+1 can be represented in 21 chars. */
+//        if (str) sprintf(str, "%d", item->valueint);
+//    } else {
+//        if (p) str = ensure(p, 64);
+//        else str = (char *) SL_GetMemory(64);    /* This is a nice tradeoff. */
+//        if (str) {
+//            if (fabs(floor(d) - d) <= DBL_EPSILON && fabs(d) < 1.0e60)sprintf(str, "%.0f", d);
+//            else if (fabs(d) < 1.0e-6 || fabs(d) > 1.0e9) sprintf(str, "%e", d);
+//            else sprintf(str, "%f", d);
+//        }
+//    }
     return str;
 }
 

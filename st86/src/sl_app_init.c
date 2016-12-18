@@ -59,17 +59,16 @@ void SL_AppSendMsg(HANDLE stTask, U32 ulMsgId, U32 ulParam) {
 }
 
 void SL_AppHandleYunbaMsg(U8 *data) {
-//    cJSON *root = cJSON_Parse(data);
-//    if (root) {
-//        int ret_size = cJSON_GetArraySize(root);
-//        if (ret_size >= 4) {
-//            strcpy(info->client_id, cJSON_GetObjectItem(root,"c")->valuestring);
-//            strcpy(info->username, cJSON_GetObjectItem(root,"u")->valuestring);
-//            strcpy(info->password, cJSON_GetObjectItem(root,"p")->valuestring);
-//            strcpy(info->device_id, cJSON_GetObjectItem(root,"d")->valuestring);
-//            rc = SUCCESS;
-//        }
-//        cJSON_Delete(root);
+    cJSON *root = cJSON_Parse(data);
+    if (root) {
+        int ret_size = cJSON_GetArraySize(root);
+        if (ret_size >= 1) {
+            if (strcmp(cJSON_GetObjectItem(root, "cmd")->valuestring, "unlock") == 0) {
+                SL_AppSendMsg(g_SLAppDevice, EVT_APP_UNLOCK, 0);
+            }
+        }
+        cJSON_Delete(root);
+    }
 }
 
 void SL_AppReportStatus(S32 lockState) {
