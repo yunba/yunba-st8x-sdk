@@ -25,7 +25,7 @@
 static U8 gSendBuf[BUF_SIZE];
 static U8 gRecvBuf[BUF_SIZE];
 
-static S32 gSocketId = 2;
+static S32 gSocketId = 0;
 static HANDLE gTask;
 
 static void SendMsg(U32 ulMsgId, U32 ulParam) {

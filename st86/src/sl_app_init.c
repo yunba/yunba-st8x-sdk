@@ -99,7 +99,7 @@ void SL_AppReportStatus(S32 lockState) {
     cJSON_AddStringToObject(status, "latitude", buf);
 
     json = cJSON_PrintUnformatted(status);
-    SL_ApiPrint("status: %s", json);
+    //SL_ApiPrint("status: %s", json);
 
     MQTTPublish(REPORT_TOPIC, json);
 
@@ -112,8 +112,8 @@ void SL_AppAssistGpsGetLocCb(S32 slResult, U32 ulLonggitude, U32 ulLatidude) {
         SL_Print("AGPS loc fail this time for lat/lon is 0\n");
         return;
     }
-    SL_ApiPrint("SLAPP: SL_AppAssistGpsGetLocCb result[%d], longi[%d], lati[%d]",
-                slResult, ulLonggitude, ulLatidude);
+    //SL_ApiPrint("SLAPP: SL_AppAssistGpsGetLocCb result[%d], longi[%d], lati[%d]",
+//                slResult, ulLonggitude, ulLatidude);
     gLongitude = ulLonggitude;
     gLatitude = ulLatidude;
     SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
@@ -126,14 +126,14 @@ void SL_AppTaskDevice(void *pData) {
     U32 lockUnlockStep = 0;
     SL_GPIO_PIN_STATUS pinStatus;
 
-    SL_ApiPrint("******* SL_AppTaskDevice *********\n");
+    //SL_ApiPrint("******* SL_AppTaskDevice *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
     stSltask.element[0] = gSLAppDevice;
 
     SL_GpioSetDir(GPIO_SWITCH_1, SL_GPIO_IN);
     SL_GpioSetDir(GPIO_SWITCH_2, SL_GPIO_IN);
-    SL_GpioSetDir(GPIO_BUZZER, SL_GPIO_OUT);
-    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
+//    SL_GpioSetDir(GPIO_BUZZER, SL_GPIO_OUT);
+//    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
     SL_GpioSetDir(GPIO_MOTOR, SL_GPIO_OUT);
     SL_GpioWrite(GPIO_MOTOR, SL_PIN_LOW);
 
@@ -148,12 +148,12 @@ void SL_AppTaskDevice(void *pData) {
         SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
 
-//        SL_ApiPrint("SLAPP: SL_AppTaskDevice get event[%d]\n", ev.nEventId);
+//        //SL_ApiPrint("SLAPP: SL_AppTaskDevice get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_UNLOCK:
-                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_UNLOCK");
+                //SL_ApiPrint("SL_AppTaskDevice: EVT_APP_UNLOCK");
                 if (lockState != LOCK_LOCKED) {
-                    SL_ApiPrint("lock state: %d", lockState);
+                    //SL_ApiPrint("lock state: %d", lockState);
                     break;
                 }
                 lockState = LOCK_UNLOCKING;
@@ -163,21 +163,21 @@ void SL_AppTaskDevice(void *pData) {
                 SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
                 break;
             case EVT_APP_REPORT_STATUS:
-                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_REPORT_STATUS");
+                //SL_ApiPrint("SL_AppTaskDevice: EVT_APP_REPORT_STATUS");
                 SL_AppReportStatus(lockState);
                 break;
-            case EVT_APP_BUZZER_ON:
-                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_ON");
-                SL_GpioWrite(GPIO_BUZZER, SL_PIN_LOW);
-                SL_StartTimer(stSltask, BUZZER_OFF_TIME_ID, SL_TIMER_MODE_SINGLE, SL_SecondToTicks(ev.nParam1));
-                break;
-            case EVT_APP_BUZZER_OFF:
-                SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_OFF");
-                SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
-                break;
+//            case EVT_APP_BUZZER_ON:
+//                //SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_ON");
+//                SL_GpioWrite(GPIO_BUZZER, SL_PIN_LOW);
+//                SL_StartTimer(stSltask, BUZZER_OFF_TIME_ID, SL_TIMER_MODE_SINGLE, SL_SecondToTicks(ev.nParam1));
+//                break;
+//            case EVT_APP_BUZZER_OFF:
+//                //SL_ApiPrint("SL_AppTaskDevice: EVT_APP_BUZZER_OFF");
+//                SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
+//                break;
             case SL_EV_TIMER:
                 if (ev.nParam1 == CHECK_SWITCH_2_TIME_ID) {
-                    SL_ApiPrint("CHECK_SWITCH_2_TIME_ID");
+                    //SL_ApiPrint("CHECK_SWITCH_2_TIME_ID");
                     pinStatus = SL_GpioRead(GPIO_SWITCH_2);
                     if (pinStatus == SL_PIN_LOW) {
                         if (lockUnlockStep == 0) {
@@ -188,10 +188,10 @@ void SL_AppTaskDevice(void *pData) {
                             SL_StopTimer(stSltask, CHECK_SWITCH_2_TIME_ID);
                             if (lockState == LOCK_LOCKING) {
                                 lockState = LOCK_LOCKED;
-                                SL_ApiPrint("lock finished");
+                                //SL_ApiPrint("lock finished");
                             } else {
                                 lockState = LOCK_UNLOCKED;
-                                SL_ApiPrint("unlock finished");
+                                //SL_ApiPrint("unlock finished");
                                 SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC,
                                               SL_SecondToTicks(1));
                             }
@@ -203,7 +203,7 @@ void SL_AppTaskDevice(void *pData) {
                         }
                     }
                 } else if (ev.nParam1 == CHECK_SWITCH_1_TIME_ID) {
-                    SL_ApiPrint("CHECK_SWITCH_1_TIME_ID");
+                    //SL_ApiPrint("CHECK_SWITCH_1_TIME_ID");
                     pinStatus = SL_GpioRead(GPIO_SWITCH_1);
                     if (pinStatus == SL_PIN_LOW) {
                         SL_StopTimer(stSltask, CHECK_SWITCH_1_TIME_ID);
@@ -215,8 +215,8 @@ void SL_AppTaskDevice(void *pData) {
                         SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
                     }
                 } else if (ev.nParam1 == BUZZER_OFF_TIME_ID) {
-                    SL_ApiPrint("BUZZER_OFF_TIME_ID");
-                    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
+//                    //SL_ApiPrint("BUZZER_OFF_TIME_ID");
+//                    SL_GpioWrite(GPIO_BUZZER, SL_PIN_HIGH);
                 }
                 break;
             default:
@@ -230,7 +230,7 @@ void SL_AppTaskYunba(void *pData) {
     SL_TASK stSltask;
     U32 mqttOk = 0;
 
-    SL_ApiPrint("******* SL_AppTaskYunba *********\n");
+    //SL_ApiPrint("******* SL_AppTaskYunba *********\n");
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
     stSltask.element[0] = gSLAppYunba;;
     SL_AppSendMsg(gSLAppYunba, EVT_APP_READY, 0);
@@ -239,30 +239,30 @@ void SL_AppTaskYunba(void *pData) {
         SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
 
-        SL_ApiPrint("SLAPP: SL_AppTaskYunba get event[%d]\n", ev.nEventId);
+        //SL_ApiPrint("SLAPP: SL_AppTaskYunba get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_READY:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_READY");
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_READY");
                 while (SL_GetNwStatus() != SL_RET_OK) {
-                    SL_ApiPrint("SLAPP: network not ok");
+                    //SL_ApiPrint("SLAPP: network not ok");
                     SL_Sleep(1000);
                 }
-                SL_ApiPrint("SLAPP: network ok");
+                //SL_ApiPrint("SLAPP: network ok");
 //                SL_AppInitAgps();
                 MQTTInit(gSLAppYunba);
 //                SL_StartTimer(stSltask, GET_AGPS_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(20));
                 break;
             case EVT_APP_MQTT_ERROR:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_ERROR");
-//                SL_Reset();
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_ERROR");
+                SL_Reset();
                 mqttOk = 0;
                 break;
             case EVT_APP_MQTT_INIT_OK:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_INIT_OK");
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_INIT_OK");
                 MQTTConnect();
                 break;
             case EVT_APP_MQTT_CONNACK:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_CONNACK");
                 mqttOk = 1;
                 MQTTSetAlias(ALIAS);
                 SL_StartTimer(stSltask, MQTT_KEEPALIVE_TIME_ID, SL_TIMER_MODE_PERIODIC, SL_SecondToTicks(60));
@@ -270,20 +270,20 @@ void SL_AppTaskYunba(void *pData) {
                 SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
                 break;
             case EVT_APP_MQTT_PUBLISH:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
-                SL_ApiPrint("payload: %s", ev.nParam1);
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_PUBLISH");
+                //SL_ApiPrint("payload: %s", ev.nParam1);
                 SL_AppHandleYunbaMsg(ev.nParam1);
                 break;
             case EVT_APP_MQTT_EXTCMD:
-                SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_EXCMD");
-                SL_ApiPrint("payload: %s", ev.nParam1);
+                //SL_ApiPrint("SL_AppTaskYunba: EVT_APP_MQTT_EXCMD");
+                //SL_ApiPrint("payload: %s", ev.nParam1);
                 break;
             case SL_EV_TIMER:
                 if (ev.nParam1 == MQTT_KEEPALIVE_TIME_ID) {
-                    SL_ApiPrint("SL_AppTaskYunba: MQTT_KEEPALIVE_TIME_ID");
+                    //SL_ApiPrint("SL_AppTaskYunba: MQTT_KEEPALIVE_TIME_ID");
                     MQTTPingreq();
                 } else if (ev.nParam1 == GET_AGPS_TIME_ID) {
-                    SL_ApiPrint("SL_AppTaskYunba: GET_AGPS_TIME_ID");
+                    //SL_ApiPrint("SL_AppTaskYunba: GET_AGPS_TIME_ID");
                     SL_AssistGpsGetLoc(SL_AppAssistGpsGetLocCb);
                 }
                 break;
@@ -335,8 +335,6 @@ void APP_ENTRY_START
 SL_Entry(void) {
     SL_EVENT ev = {0};
     SL_TASK stSltask;
-    PSL_UART_DATA pUartData;
-    U32 ulUartId;
 
     SL_Memset(&ev, 0, sizeof(SL_EVENT));
     SL_AppCreateTask();
@@ -347,11 +345,11 @@ SL_Entry(void) {
     while (1) {
         SL_FreeMemory((VOID *) ev.nParam1);
         SL_GetEvent(stSltask, &ev);
-        SL_ApiPrint("SLAPP: SL_Entry get event[%d]\n", ev.nEventId);
+        //SL_ApiPrint("SLAPP: SL_Entry get event[%d]\n", ev.nEventId);
         switch (ev.nEventId) {
             case EVT_APP_READY:
 //                while (SL_GetNwStatus() != SL_RET_OK) {
-//                    SL_ApiPrint("SLAPP: net register");
+//                    //SL_ApiPrint("SLAPP: net register");
 //                    SL_Sleep(1000);
 //                }
 //
