@@ -11,9 +11,9 @@
 #include "MQTTPacket.h"
 #include "sl_app_mqttclient.h"
 
-#define BUF_SIZE 256
+#define BUF_SIZE 512
 
-//#define SERVER_IP "182.92.205.77";
+//#define SERVER_IP "182.92.180.87";
 //#define U16 SERVER_PORT 9999;
 #define SERVER_IP "182.92.106.18" /* abj-front-2 */
 #define SERVER_PORT 1883
@@ -65,7 +65,7 @@ static void HandlePacket(U8 *data, S32 len) {
     U8 packetType;
 
     packetType = data[0] >> 4;
-    //SL_ApiPrint("HandlePacket: type: %d", packetType);
+    SL_ApiPrint("HandlePacket: type: %d", packetType);
     /* TODO: finish other types */
     switch (packetType) {
         case CONNACK:
@@ -93,13 +93,13 @@ static void HandlePacket(U8 *data, S32 len) {
             }
             break;
         case EXTCMD:
-            if (MQTTDeserialize_extendedcmd(&dup, &qos, &retained, &id, &cmd, &status, &payload, &payloadLen, data,
-                                            len) != 1) {
-                //SL_ApiPrint("MQTTDeserialize_extendedcmd error");
-            } else {
-                payload[payloadLen] = 0;
-                SendMsg(EVT_APP_MQTT_EXTCMD, payload);
-            }
+//            if (MQTTDeserialize_extendedcmd(&dup, &qos, &retained, &id, &cmd, &status, &payload, &payloadLen, data,
+//                                            len) != 1) {
+//                //SL_ApiPrint("MQTTDeserialize_extendedcmd error");
+//            } else {
+//                payload[payloadLen] = 0;
+//                SendMsg(EVT_APP_MQTT_EXTCMD, payload);
+//            }
             break;
         case PUBACK:
         case SUBACK:
@@ -175,7 +175,7 @@ static void MQTTTcpipRcvRsp(U8 ucCidIndex, S32 slSockId, BOOL bResult, S32 slErr
         SendMsg(EVT_APP_MQTT_ERROR, 0);
         return;
     }
-    //SL_ApiPrint("MQTTTcpipRcvRsp: first byte: %d", gRecvBuf[len]);
+    SL_ApiPrint("MQTTTcpipRcvRsp: first byte: %d", gRecvBuf[len]);
 //    SL_MEMBLOCK(gRecvBuf, slRet, 16);
     len += 1;
 
