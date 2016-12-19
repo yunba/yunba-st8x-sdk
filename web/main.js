@@ -54,7 +54,7 @@ $(document).ready(function() {
 $('#btn-send').click(function() {
   yunba.publish_to_alias({
     'alias': ALIAS,
-    'msg': '{"cmd":"unlock"}',
+    'msg': 'unlock',
     }, function (success, msg) {
         if (!success) {
             console.log(msg);
@@ -90,7 +90,7 @@ function yunba_sub_ok() {
   $('#span-status').text('正在获取锁的状态...');
   yunba.publish_to_alias({
     'alias': ALIAS,
-    'msg': '{"cmd":"report"}',
+    'msg': 'report',
     }, function (success, msg) {
         if (!success) {
             console.log(msg);
