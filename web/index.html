@@ -23,22 +23,12 @@
       padding: 0px;
     }
 
+    .my-btn-block {
+      width: 100%;
+    }
+
     .row {
       margin: 0px;
-    }
-
-    @media (max-width: 991px) {
-      .my-col {
-        padding: 0px;
-        min-height: 0px;
-      }
-    }
-
-    @media (max-width: 767px) {
-      .my-col {
-        padding: 0px;
-        min-height: 0px;
-      }
     }
 
     .glyphicon-spin {
@@ -82,13 +72,13 @@
           <div class="panel-heading">
           </div>
           <div class="panel-body">
-	          <button type="button" class="btn btn-success disabled">
+	          <button type="button" class="btn btn-success disabled my-btn-block">
                 <span id="span-loading" class="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true"></span>
                 <span id="span-status">正在加载所需文件...</span>
               </button>
           </div>
           <div class="panel-body">
-              <button id="btn-send" type="button" class="btn btn-danger" disabled="true">
+              <button id="btn-send" type="button" class="btn btn-danger my-btn-block" disabled="true">
                 <span class="glyphicon glyphicon-send" aria-hidden="true"></span>
                 开锁
               </button>
