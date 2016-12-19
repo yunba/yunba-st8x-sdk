@@ -49,7 +49,6 @@ static void SendPacket(U8 *data, U32 len) {
         } else {
             len -= slRet;
         }
-        //SL_ApiPrint("======while");
     }
 }
 
