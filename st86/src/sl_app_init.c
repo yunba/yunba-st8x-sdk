@@ -19,9 +19,9 @@
 #define ALIAS "yunba_lock_test"
 #define REPORT_TOPIC "yunba_lock_report"
 
-#define APP_TASK_DEVICE_STACK_SIZE    (2 * 2048)
+#define APP_TASK_DEVICE_STACK_SIZE    (3 * 2048)
 #define APP_TASK_DEVICE_PRIORITY      (SL_APP_TASK_PRIORITY_BEGIN + 1)
-#define APP_TASK_YUNBA_STACK_SIZE     (2 * 2048)
+#define APP_TASK_YUNBA_STACK_SIZE     (3 * 2048)
 #define APP_TASK_YUNBA_PRIORITY       (SL_APP_TASK_PRIORITY_BEGIN + 2)
 
 #define GPIO_SWITCH_1   SL_GPIO_1
@@ -92,7 +92,7 @@ void SL_AppReportStatus(S32 lockState) {
 
     status = cJSON_CreateObject();
     cJSON_AddStringToObject(status, "alias", ALIAS);
-    cJSON_AddBoolToObject(status, "lock", lockState == LOCK_LOCKED);
+    cJSON_AddBoolToObject(status, "lock", lockState == LOCK_LOCKED || lockState == LOCK_LOCKING);
     snprintf(buf, sizeof(buf), "%d", gLongitude);
     cJSON_AddStringToObject(status, "longitude", buf);
     snprintf(buf, sizeof(buf), "%d", gLatitude);
@@ -193,13 +193,13 @@ void SL_AppTaskDevice(void *pData) {
                                 lockState = LOCK_UNLOCKED;
                                 //SL_ApiPrint("unlock finished");
                                 SL_StartTimer(stSltask, CHECK_SWITCH_1_TIME_ID, SL_TIMER_MODE_PERIODIC,
-                                              SL_SecondToTicks(1));
+                                              SL_MilliSecondToTicks(400));
                             }
-                            SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
                         }
                     } else {
                         if (lockUnlockStep == 1) {
                             lockUnlockStep = 2;
+                            SL_AppSendMsg(gSLAppDevice, EVT_APP_REPORT_STATUS, 0);
                         }
                     }
                 } else if (ev.nParam1 == CHECK_SWITCH_1_TIME_ID) {
@@ -210,7 +210,7 @@ void SL_AppTaskDevice(void *pData) {
                         lockState = LOCK_LOCKING;
                         lockUnlockStep = 0;
                         SL_StartTimer(stSltask, CHECK_SWITCH_2_TIME_ID, SL_TIMER_MODE_PERIODIC,
-                                      SL_MilliSecondToTicks(20));
+                                      SL_MilliSecondToTicks(100));
                         /* start motor */
                         SL_GpioWrite(GPIO_MOTOR, SL_PIN_HIGH);
                     }
