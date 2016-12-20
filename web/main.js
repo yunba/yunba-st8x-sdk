@@ -4,7 +4,7 @@ var ALIAS = 'yunba_lock_test';
 
 
 $(document).ready(function() {
-
+  window.send_time = null;
   $('#span-status').text('正在连接云巴服务器...');
 
   window.yunba = new Yunba({
@@ -73,10 +73,11 @@ function yunba_msg_cb(data) {
       $('#span-status').text('状态: 已锁上');
       $('#btn-send').attr("disabled", false);
     } else {
-      if (window.send_time != undefined) {
+      if (window.send_time != null) {
       	var recv_time = new Date();
       	var sec = (recv_time.getTime() - window.send_time.getTime()) / 1000.0;
       	$('#span-status').text('状态: 已打开(用时 ' + sec + ' 秒)');
+		window.send_time = null;
       } else {
         $('#span-status').text('状态: 已打开');
       }
